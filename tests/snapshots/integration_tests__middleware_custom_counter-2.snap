@@ -1,0 +1,92 @@
+---
+source: tests/integration_tests.rs
+expression: snapshot
+---
+Snapshot(
+    [
+        (
+            CompositeKey(
+                Histogram,
+                Key {
+                    name: KeyName(
+                        "http_requests_duration_seconds",
+                    ),
+                    labels: [
+                        Label(
+                            "endpoint",
+                            "/health_check",
+                        ),
+                        Label(
+                            "method",
+                            "GET",
+                        ),
+                        Label(
+                            "status",
+                            "200",
+                        ),
+                    ],
+                    hashed: true,
+                    hash: 8295931754385516202,
+                },
+            ),
+            None,
+            Some(
+                "HTTP request duration in seconds for all requests",
+            ),
+            Histogram(
+                [],
+            ),
+        ),
+        (
+            CompositeKey(
+                Counter,
+                Key {
+                    name: KeyName(
+                        "http_requests_total",
+                    ),
+                    labels: [
+                        Label(
+                            "endpoint",
+                            "/health_check",
+                        ),
+                        Label(
+                            "method",
+                            "GET",
+                        ),
+                        Label(
+                            "status",
+                            "200",
+                        ),
+                    ],
+                    hashed: true,
+                    hash: 11524003073089476944,
+                },
+            ),
+            None,
+            Some(
+                "Total number of HTTP requests",
+            ),
+            Counter(
+                1,
+            ),
+        ),
+        (
+            CompositeKey(
+                Counter,
+                Key {
+                    name: KeyName(
+                        "counter",
+                    ),
+                    labels: [],
+                    hashed: false,
+                    hash: 0,
+                },
+            ),
+            None,
+            None,
+            Counter(
+                1,
+            ),
+        ),
+    ],
+)

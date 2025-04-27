@@ -12,11 +12,11 @@ By default two metrics are tracked (this assumes the namespace `actix_web_prom`)
 
 # Usage
 
-First add `actix-web-prom` to your `Cargo.toml`:
+First add `actix-web-metrics` to your `Cargo.toml`:
 
 ```toml
 [dependencies]
-actix-web-prom = "0.9.0"
+actix-web-metrics = "x.x.x"
 ```
 
 You then instantiate the prometheus middleware and pass it to `.wrap()`:
@@ -25,7 +25,7 @@ You then instantiate the prometheus middleware and pass it to `.wrap()`:
 use std::collections::HashMap;
 
 use actix_web::{web, App, HttpResponse, HttpServer};
-use actix_web_prom::{PrometheusMetrics, PrometheusMetricsBuilder};
+use actix_web_metrics::{ActixWebMetrics, ActixWebMetricsBuilder};
 
 async fn health() -> HttpResponse {
     HttpResponse::Ok().finish()
@@ -35,8 +35,7 @@ async fn health() -> HttpResponse {
 async fn main() -> std::io::Result<()> {
     let mut labels = HashMap::new();
     labels.insert("label1".to_string(), "value1".to_string());
-    let prometheus = PrometheusMetricsBuilder::new("api")
-        .endpoint("/metrics")
+    let prometheus = ActixWebMetricsBuilder::new()
         .const_labels(labels)
         .build()
         .unwrap();
@@ -87,30 +86,7 @@ api_http_requests_duration_seconds_count{endpoint="/metrics",label1="value1",met
 api_http_requests_total{endpoint="/metrics",label1="value1",method="GET",status="200"} 1
 ```
 
-## Features
-If you enable `process` feature of this crate, default process metrics will also be collected.
-[Default process metrics](https://prometheus.io/docs/instrumenting/writing_clientlibs/#process-metrics)
-
-```shell
-# HELP process_cpu_seconds_total Total user and system CPU time spent in seconds.
-# TYPE process_cpu_seconds_total counter
-process_cpu_seconds_total 0.22
-# HELP process_max_fds Maximum number of open file descriptors.
-# TYPE process_max_fds gauge
-process_max_fds 1048576
-# HELP process_open_fds Number of open file descriptors.
-# TYPE process_open_fds gauge
-process_open_fds 78
-# HELP process_resident_memory_bytes Resident memory size in bytes.
-# TYPE process_resident_memory_bytes gauge
-process_resident_memory_bytes 17526784
-# HELP process_start_time_seconds Start time of the process since unix epoch in seconds.
-# TYPE process_start_time_seconds gauge
-process_start_time_seconds 1628105774.92
-# HELP process_virtual_memory_bytes Virtual memory size in bytes.
-# TYPE process_virtual_memory_bytes gauge
-process_virtual_memory_bytes 1893163008
-```
+# Features
 
 ## Custom metrics
 
@@ -367,7 +343,7 @@ impl ActixWebMetricsBuilder {
             exclude: HashSet::new(),
             exclude_regex: RegexSet::empty(),
             exclude_status: HashSet::new(),
-            unmatched_patterns_mask: None,
+            unmatched_patterns_mask: Some("UNKNOWN".to_string()),
             metrics_configuration: ActixMetricsConfiguration::default(),
         }
     }
@@ -405,8 +381,18 @@ impl ActixWebMetricsBuilder {
     }
 
     /// Replaces the request path with the supplied mask if no actix-web handler is matched
+    ///
+    /// Defaults to `UNKNOWN`
     pub fn mask_unmatched_patterns<T: Into<String>>(mut self, mask: T) -> Self {
         self.unmatched_patterns_mask = Some(mask.into());
+        self
+    }
+
+    /// Disable masking of unmatched patterns.
+    ///
+    /// WARNING:This may lead to unbounded cardinality for unmatched requests. (potential DoS)
+    pub fn unmask_unmatched_patterns(mut self) -> Self {
+        self.unmatched_patterns_mask = None;
         self
     }
 
@@ -452,7 +438,7 @@ impl ActixWebMetricsBuilder {
                 None
             };
 
-        let const_labels: Vec<(&'static str, String)> = self
+        let mut const_labels: Vec<(&'static str, String)> = self
             .const_labels
             .iter()
             .map(|(k, v)| {
@@ -460,6 +446,7 @@ impl ActixWebMetricsBuilder {
                 (k, v.clone())
             })
             .collect();
+        const_labels.sort_by_key(|v| v.0);
 
         Ok(ActixWebMetrics {
             exclude: self.exclude,
@@ -846,702 +833,5 @@ impl<B: MessageBody> MessageBody for StreamLog<B> {
             Some(Err(err)) => Poll::Ready(Some(Err(err))),
             None => Poll::Ready(None),
         }
-    }
-}
-
-#[cfg(test)]
-mod tests {
-    use super::*;
-    use actix_web::dev::Service;
-    use actix_web::test::{call_and_read_body, call_service, init_service, read_body, TestRequest};
-    use actix_web::{web, App, HttpMessage, HttpResponse, Resource, Scope};
-
-    use prometheus::{Counter, Opts};
-
-    #[actix_web::test]
-    async fn middleware_basic() {
-        let prometheus = ActixWebMetricsBuilder::new("actix_web_prom")
-            .endpoint("/metrics")
-            .build()
-            .unwrap();
-
-        let app = init_service(
-            App::new()
-                .wrap(prometheus)
-                .service(web::resource("/health_check").to(HttpResponse::Ok)),
-        )
-        .await;
-
-        let res = call_service(&app, TestRequest::with_uri("/health_check").to_request()).await;
-        assert!(res.status().is_success());
-        assert_eq!(read_body(res).await, "");
-
-        let res = call_service(&app, TestRequest::with_uri("/metrics").to_request()).await;
-        assert_eq!(
-            res.headers().get(CONTENT_TYPE).unwrap(),
-            "text/plain; version=0.0.4; charset=utf-8"
-        );
-        let body = String::from_utf8(read_body(res).await.to_vec()).unwrap();
-        assert!(&body.contains(
-            &String::from_utf8(web::Bytes::from(
-                "# HELP actix_web_prom_http_requests_duration_seconds HTTP request duration in seconds for all requests
-# TYPE actix_web_prom_http_requests_duration_seconds histogram
-actix_web_prom_http_requests_duration_seconds_bucket{endpoint=\"/health_check\",method=\"GET\",status=\"200\",le=\"0.005\"} 1
-"
-        ).to_vec()).unwrap()));
-        assert!(body.contains(
-            &String::from_utf8(
-                web::Bytes::from(
-                    "# HELP actix_web_prom_http_requests_total Total number of HTTP requests
-# TYPE actix_web_prom_http_requests_total counter
-actix_web_prom_http_requests_total{endpoint=\"/health_check\",method=\"GET\",status=\"200\"} 1
-"
-                )
-                .to_vec()
-            )
-            .unwrap()
-        ));
-    }
-
-    #[actix_web::test]
-    async fn middleware_http_version() {
-        let prometheus = ActixWebMetricsBuilder::new("actix_web_prom")
-            .endpoint("/metrics")
-            .metrics_configuration(
-                ActixMetricsConfiguration::default()
-                    .labels(LabelsConfiguration::default().version("version")),
-            )
-            .build()
-            .unwrap();
-
-        let app = init_service(
-            App::new()
-                .wrap(prometheus)
-                .service(web::resource("/health_check").to(HttpResponse::Ok)),
-        )
-        .await;
-
-        let test_cases = HashMap::from([
-            (Version::HTTP_09, 1),
-            (Version::HTTP_10, 2),
-            (Version::HTTP_11, 5),
-            (Version::HTTP_2, 7),
-            (Version::HTTP_3, 11),
-        ]);
-
-        for (http_version, repeats) in test_cases.iter() {
-            for _ in 0..*repeats {
-                let res = call_service(
-                    &app,
-                    TestRequest::with_uri("/health_check")
-                        .version(*http_version)
-                        .to_request(),
-                )
-                .await;
-                assert!(res.status().is_success());
-                assert_eq!(read_body(res).await, "");
-            }
-        }
-
-        let res = call_service(&app, TestRequest::with_uri("/metrics").to_request()).await;
-        assert_eq!(
-            res.headers().get(CONTENT_TYPE).unwrap(),
-            "text/plain; version=0.0.4; charset=utf-8"
-        );
-        let body = String::from_utf8(read_body(res).await.to_vec()).unwrap();
-        println!("Body: {}", body);
-        for (http_version, repeats) in test_cases {
-            assert!(&body.contains(
-                &String::from_utf8(web::Bytes::from(
-                    format!(
-                        "actix_web_prom_http_requests_duration_seconds_bucket{{endpoint=\"/health_check\",method=\"GET\",status=\"200\",version=\"{}\",le=\"0.005\"}} {}
-", ActixWebMetrics::http_version_label(http_version), repeats)
-            ).to_vec()).unwrap()));
-
-            assert!(&body.contains(
-                &String::from_utf8(web::Bytes::from(
-                    format!(
-                        "actix_web_prom_http_requests_total{{endpoint=\"/health_check\",method=\"GET\",status=\"200\",version=\"{}\"}} {}
-", ActixWebMetrics::http_version_label(http_version), repeats)
-            ).to_vec()).unwrap()));
-        }
-    }
-
-    #[actix_web::test]
-    async fn middleware_scope() {
-        let prometheus = ActixWebMetricsBuilder::new("actix_web_prom")
-            .endpoint("/internal/metrics")
-            .build()
-            .unwrap();
-
-        let app = init_service(
-            App::new().service(
-                web::scope("/internal")
-                    .wrap(prometheus)
-                    .service(web::resource("/health_check").to(HttpResponse::Ok)),
-            ),
-        )
-        .await;
-
-        let res = call_service(
-            &app,
-            TestRequest::with_uri("/internal/health_check").to_request(),
-        )
-        .await;
-        assert!(res.status().is_success());
-        assert_eq!(read_body(res).await, "");
-
-        let res = call_service(
-            &app,
-            TestRequest::with_uri("/internal/metrics").to_request(),
-        )
-        .await;
-        assert_eq!(
-            res.headers().get(CONTENT_TYPE).unwrap(),
-            "text/plain; version=0.0.4; charset=utf-8"
-        );
-        let body = String::from_utf8(read_body(res).await.to_vec()).unwrap();
-        assert!(&body.contains(
-            &String::from_utf8(web::Bytes::from(
-                "# HELP actix_web_prom_http_requests_duration_seconds HTTP request duration in seconds for all requests
-# TYPE actix_web_prom_http_requests_duration_seconds histogram
-actix_web_prom_http_requests_duration_seconds_bucket{endpoint=\"/internal/health_check\",method=\"GET\",status=\"200\",le=\"0.005\"} 1
-"
-        ).to_vec()).unwrap()));
-        assert!(body.contains(
-            &String::from_utf8(
-                web::Bytes::from(
-                    "# HELP actix_web_prom_http_requests_total Total number of HTTP requests
-# TYPE actix_web_prom_http_requests_total counter
-actix_web_prom_http_requests_total{endpoint=\"/internal/health_check\",method=\"GET\",status=\"200\"} 1
-"
-                )
-                .to_vec()
-            )
-            .unwrap()
-        ));
-    }
-
-    #[actix_web::test]
-    async fn middleware_match_pattern() {
-        let prometheus = ActixWebMetricsBuilder::new("actix_web_prom")
-            .endpoint("/metrics")
-            .build()
-            .unwrap();
-
-        let app = init_service(
-            App::new()
-                .wrap(prometheus)
-                .service(web::resource("/resource/{id}").to(HttpResponse::Ok)),
-        )
-        .await;
-
-        let res = call_service(&app, TestRequest::with_uri("/resource/123").to_request()).await;
-        assert!(res.status().is_success());
-        assert_eq!(read_body(res).await, "");
-
-        let res = call_and_read_body(&app, TestRequest::with_uri("/metrics").to_request()).await;
-        let body = String::from_utf8(res.to_vec()).unwrap();
-        assert!(&body.contains(
-            &String::from_utf8(web::Bytes::from(
-                "# HELP actix_web_prom_http_requests_duration_seconds HTTP request duration in seconds for all requests
-# TYPE actix_web_prom_http_requests_duration_seconds histogram
-actix_web_prom_http_requests_duration_seconds_bucket{endpoint=\"/resource/{id}\",method=\"GET\",status=\"200\",le=\"0.005\"} 1
-"
-        ).to_vec()).unwrap()));
-        assert!(body.contains(
-            &String::from_utf8(
-                web::Bytes::from(
-                    "# HELP actix_web_prom_http_requests_total Total number of HTTP requests
-# TYPE actix_web_prom_http_requests_total counter
-actix_web_prom_http_requests_total{endpoint=\"/resource/{id}\",method=\"GET\",status=\"200\"} 1
-"
-                )
-                .to_vec()
-            )
-            .unwrap()
-        ));
-    }
-
-    #[actix_web::test]
-    async fn middleware_with_mask_unmatched_pattern() {
-        let prometheus = ActixWebMetricsBuilder::new("actix_web_prom")
-            .endpoint("/metrics")
-            .mask_unmatched_patterns("UNKNOWN")
-            .build()
-            .unwrap();
-
-        let app = init_service(
-            App::new()
-                .wrap(prometheus)
-                .service(web::resource("/resource/{id}").to(HttpResponse::Ok)),
-        )
-        .await;
-
-        let res = call_service(&app, TestRequest::with_uri("/not-real").to_request()).await;
-        assert!(res.status().is_client_error());
-        assert_eq!(read_body(res).await, "");
-
-        let res = call_and_read_body(&app, TestRequest::with_uri("/metrics").to_request()).await;
-        let body = String::from_utf8(res.to_vec()).unwrap();
-
-        assert!(&body.contains(
-            &String::from_utf8(web::Bytes::from(
-                "actix_web_prom_http_requests_duration_seconds_bucket{endpoint=\"UNKNOWN\",method=\"GET\",status=\"404\",le=\"0.005\"} 1"
-        ).to_vec()).unwrap()));
-        assert!(body.contains(
-            &String::from_utf8(
-                web::Bytes::from(
-                    "actix_web_prom_http_requests_total{endpoint=\"UNKNOWN\",method=\"GET\",status=\"404\"} 1"
-                )
-                .to_vec()
-            )
-            .unwrap()
-        ));
-    }
-
-    #[actix_web::test]
-    async fn middleware_with_mixed_params_cardinality() {
-        // we want to keep metrics label on the "cheap param" but not on the "expensive" param
-        let prometheus = ActixWebMetricsBuilder::new("actix_web_prom")
-            .endpoint("/metrics")
-            .build()
-            .unwrap();
-
-        let app = init_service(
-            App::new().wrap(prometheus).service(
-                web::resource("/resource/{cheap}/{expensive}")
-                    .wrap_fn(|req, srv| {
-                        req.extensions_mut().insert::<MetricsConfig>(MetricsConfig {
-                            cardinality_keep_params: vec!["cheap".to_string()],
-                        });
-                        srv.call(req)
-                    })
-                    .to(|path: web::Path<(String, String)>| async {
-                        let (cheap, _expensive) = path.into_inner();
-                        if !["foo", "bar"].map(|x| x.to_string()).contains(&cheap) {
-                            return HttpResponse::NotFound().finish();
-                        }
-                        HttpResponse::Ok().finish()
-                    }),
-            ),
-        )
-        .await;
-
-        // first probe to check basic facts
-        let res = call_service(
-            &app,
-            TestRequest::with_uri("/resource/foo/12345").to_request(),
-        )
-        .await;
-        assert!(res.status().is_success());
-        assert_eq!(read_body(res).await, "");
-
-        let res = call_and_read_body(&app, TestRequest::with_uri("/metrics").to_request()).await;
-        let body = String::from_utf8(res.to_vec()).unwrap();
-        println!("Body: {}", body);
-        assert!(&body.contains(
-            &String::from_utf8(web::Bytes::from(
-                "actix_web_prom_http_requests_duration_seconds_bucket{endpoint=\"/resource/foo/{expensive}\",method=\"GET\",status=\"200\",le=\"0.005\"} 1"
-        ).to_vec()).unwrap()));
-        assert!(body.contains(
-            &String::from_utf8(
-                web::Bytes::from(
-                    "actix_web_prom_http_requests_total{endpoint=\"/resource/foo/{expensive}\",method=\"GET\",status=\"200\"} 1"
-                )
-                .to_vec()
-            )
-            .unwrap()
-        ));
-
-        // second probe to test 404 behavior
-        let res = call_service(
-            &app,
-            TestRequest::with_uri("/resource/invalid/92945").to_request(),
-        )
-        .await;
-        assert!(res.status() == 404);
-        assert_eq!(read_body(res).await, "");
-
-        let res = call_and_read_body(&app, TestRequest::with_uri("/metrics").to_request()).await;
-        let body = String::from_utf8(res.to_vec()).unwrap();
-        println!("Body: {}", body);
-        assert!(body.contains(
-            &String::from_utf8(
-                web::Bytes::from(
-                    "actix_web_prom_http_requests_total{endpoint=\"/resource/{cheap}/{expensive}\",method=\"GET\",status=\"404\"} 1"
-                )
-                .to_vec()
-            )
-            .unwrap()
-        ));
-    }
-
-    #[actix_web::test]
-    async fn middleware_metrics_exposed_with_conflicting_pattern() {
-        let prometheus = ActixWebMetricsBuilder::new("actix_web_prom")
-            .endpoint("/metrics")
-            .build()
-            .unwrap();
-
-        let app = init_service(
-            App::new()
-                .wrap(prometheus)
-                .service(web::resource("/{path}").to(HttpResponse::Ok)),
-        )
-        .await;
-
-        let res = call_service(&app, TestRequest::with_uri("/something").to_request()).await;
-        assert!(res.status().is_success());
-        assert_eq!(read_body(res).await, "");
-
-        let res = call_and_read_body(&app, TestRequest::with_uri("/metrics").to_request()).await;
-        let body = String::from_utf8(res.to_vec()).unwrap();
-        assert!(&body.contains(
-            &String::from_utf8(web::Bytes::from(
-                "# HELP actix_web_prom_http_requests_duration_seconds HTTP request duration in seconds for all requests"
-        ).to_vec()).unwrap()));
-    }
-
-    #[actix_web::test]
-    async fn middleware_basic_failure() {
-        let prometheus = ActixWebMetricsBuilder::new("actix_web_prom")
-            .endpoint("/prometheus")
-            .build()
-            .unwrap();
-
-        let app = init_service(
-            App::new()
-                .wrap(prometheus)
-                .service(web::resource("/health_check").to(HttpResponse::Ok)),
-        )
-        .await;
-
-        call_service(&app, TestRequest::with_uri("/health_checkz").to_request()).await;
-        let res = call_and_read_body(&app, TestRequest::with_uri("/prometheus").to_request()).await;
-        assert!(String::from_utf8(res.to_vec()).unwrap().contains(
-            &String::from_utf8(
-                web::Bytes::from(
-                    "# HELP actix_web_prom_http_requests_total Total number of HTTP requests
-# TYPE actix_web_prom_http_requests_total counter
-actix_web_prom_http_requests_total{endpoint=\"/health_checkz\",method=\"GET\",status=\"404\"} 1
-"
-                )
-                .to_vec()
-            )
-            .unwrap()
-        ));
-    }
-
-    #[actix_web::test]
-    async fn middleware_custom_counter() {
-        let counter_opts = Opts::new("counter", "some random counter").namespace("actix_web_prom");
-        let counter = IntCounterVec::new(counter_opts, &["endpoint", "method", "status"]).unwrap();
-
-        let prometheus = ActixWebMetricsBuilder::new("actix_web_prom")
-            .endpoint("/metrics")
-            .build()
-            .unwrap();
-
-        prometheus
-            .registry
-            .register(Box::new(counter.clone()))
-            .unwrap();
-
-        let app = init_service(
-            App::new()
-                .wrap(prometheus)
-                .service(web::resource("/health_check").to(HttpResponse::Ok)),
-        )
-        .await;
-
-        // Verify that 'counter' does not appear in the output before we use it
-        call_service(&app, TestRequest::with_uri("/health_check").to_request()).await;
-        let res = call_and_read_body(&app, TestRequest::with_uri("/metrics").to_request()).await;
-        assert!(!String::from_utf8(res.to_vec()).unwrap().contains(
-            &String::from_utf8(
-                web::Bytes::from(
-                    "# HELP actix_web_prom_counter some random counter
-# TYPE actix_web_prom_counter counter
-actix_web_prom_counter{endpoint=\"endpoint\",method=\"method\",status=\"status\"} 1
-"
-                )
-                .to_vec()
-            )
-            .unwrap()
-        ));
-
-        // Verify that 'counter' appears after we use it
-        counter
-            .with_label_values(&["endpoint", "method", "status"])
-            .inc();
-        counter
-            .with_label_values(&["endpoint", "method", "status"])
-            .inc();
-        call_service(&app, TestRequest::with_uri("/metrics").to_request()).await;
-        let res = call_and_read_body(&app, TestRequest::with_uri("/metrics").to_request()).await;
-        assert!(String::from_utf8(res.to_vec()).unwrap().contains(
-            &String::from_utf8(
-                web::Bytes::from(
-                    "# HELP actix_web_prom_counter some random counter
-# TYPE actix_web_prom_counter counter
-actix_web_prom_counter{endpoint=\"endpoint\",method=\"method\",status=\"status\"} 2
-"
-                )
-                .to_vec()
-            )
-            .unwrap()
-        ));
-    }
-
-    #[actix_web::test]
-    async fn middleware_none_endpoint() {
-        // Init PrometheusMetrics with none URL
-        let prometheus = ActixWebMetricsBuilder::new("actix_web_prom")
-            .build()
-            .unwrap();
-
-        let app = init_service(App::new().wrap(prometheus.clone()).service(
-            web::resource("/metrics").to(|| async { HttpResponse::Ok().body("not prometheus") }),
-        ))
-        .await;
-
-        let response =
-            call_and_read_body(&app, TestRequest::with_uri("/metrics").to_request()).await;
-
-        // Assert app works
-        assert_eq!(
-            String::from_utf8(response.to_vec()).unwrap(),
-            "not prometheus"
-        );
-
-        // Assert counter counts
-        let mut buffer = Vec::new();
-        let encoder = TextEncoder::new();
-        let metric_families = prometheus.registry.gather();
-        encoder.encode(&metric_families, &mut buffer).unwrap();
-        let output = String::from_utf8(buffer).unwrap();
-
-        assert!(output.contains(
-            "actix_web_prom_http_requests_total{endpoint=\"/metrics\",method=\"GET\",status=\"200\"} 1"
-        ));
-    }
-
-    #[actix_web::test]
-    async fn middleware_custom_registry_works() {
-        // Init Prometheus Registry
-        let registry = Registry::new();
-
-        let counter_opts = Opts::new("test_counter", "test counter help");
-        let counter = Counter::with_opts(counter_opts).unwrap();
-        registry.register(Box::new(counter.clone())).unwrap();
-
-        counter.inc_by(10_f64);
-
-        // Init PrometheusMetrics
-        let prometheus = ActixWebMetricsBuilder::new("actix_web_prom")
-            .registry(registry)
-            .endpoint("/metrics")
-            .build()
-            .unwrap();
-
-        let app = init_service(
-            App::new()
-                .wrap(prometheus.clone())
-                .service(web::resource("/test").to(|| async { HttpResponse::Ok().finish() })),
-        )
-        .await;
-
-        // all http counters are 0 because this is the first http request,
-        // so we should get only 10 on test counter
-        let response =
-            call_and_read_body(&app, TestRequest::with_uri("/metrics").to_request()).await;
-        let body = String::from_utf8(response.to_vec()).unwrap();
-
-        let ten_test_counter =
-            "# HELP test_counter test counter help\n# TYPE test_counter counter\ntest_counter 10\n";
-        assert!(body.contains(ten_test_counter));
-
-        // all http counters are 1 because this is the second http request,
-        // plus 10 on test counter
-        let response =
-            call_and_read_body(&app, TestRequest::with_uri("/metrics").to_request()).await;
-        let response_string = String::from_utf8(response.to_vec()).unwrap();
-
-        let one_http_counters = "# HELP actix_web_prom_http_requests_total Total number of HTTP requests\n# TYPE actix_web_prom_http_requests_total counter\nactix_web_prom_http_requests_total{endpoint=\"/metrics\",method=\"GET\",status=\"200\"} 1";
-
-        assert!(response_string.contains(ten_test_counter));
-        assert!(response_string.contains(one_http_counters));
-    }
-
-    #[actix_web::test]
-    async fn middleware_const_labels() {
-        let mut labels = HashMap::new();
-        labels.insert("label1".to_string(), "value1".to_string());
-        labels.insert("label2".to_string(), "value2".to_string());
-        let prometheus = ActixWebMetricsBuilder::new("actix_web_prom")
-            .endpoint("/metrics")
-            .const_labels(labels)
-            .build()
-            .unwrap();
-
-        let app = init_service(
-            App::new()
-                .wrap(prometheus)
-                .service(web::resource("/health_check").to(HttpResponse::Ok)),
-        )
-        .await;
-
-        let res = call_service(&app, TestRequest::with_uri("/health_check").to_request()).await;
-        assert!(res.status().is_success());
-        assert_eq!(read_body(res).await, "");
-
-        let res = call_and_read_body(&app, TestRequest::with_uri("/metrics").to_request()).await;
-        let body = String::from_utf8(res.to_vec()).unwrap();
-        assert!(&body.contains(
-            &String::from_utf8(web::Bytes::from(
-                "# HELP actix_web_prom_http_requests_duration_seconds HTTP request duration in seconds for all requests
-# TYPE actix_web_prom_http_requests_duration_seconds histogram
-actix_web_prom_http_requests_duration_seconds_bucket{endpoint=\"/health_check\",label1=\"value1\",label2=\"value2\",method=\"GET\",status=\"200\",le=\"0.005\"} 1
-"
-        ).to_vec()).unwrap()));
-        assert!(body.contains(
-            &String::from_utf8(
-                web::Bytes::from(
-                    "# HELP actix_web_prom_http_requests_total Total number of HTTP requests
-# TYPE actix_web_prom_http_requests_total counter
-actix_web_prom_http_requests_total{endpoint=\"/health_check\",label1=\"value1\",label2=\"value2\",method=\"GET\",status=\"200\"} 1
-"
-                )
-                .to_vec()
-            )
-            .unwrap()
-        ));
-    }
-
-    #[actix_web::test]
-    async fn middleware_metrics_configuration() {
-        let metrics_config = ActixMetricsConfiguration::default()
-            .http_requests_duration_seconds_name("my_http_request_duration")
-            .http_requests_total_name("my_http_requests_total");
-
-        let prometheus = ActixWebMetricsBuilder::new("actix_web_prom")
-            .endpoint("/metrics")
-            .metrics_configuration(metrics_config)
-            .build()
-            .unwrap();
-
-        let app = init_service(
-            App::new()
-                .wrap(prometheus)
-                .service(web::resource("/health_check").to(HttpResponse::Ok)),
-        )
-        .await;
-
-        let res = call_service(&app, TestRequest::with_uri("/health_check").to_request()).await;
-        assert!(res.status().is_success());
-        assert_eq!(read_body(res).await, "");
-
-        let res = call_and_read_body(&app, TestRequest::with_uri("/metrics").to_request()).await;
-        let body = String::from_utf8(res.to_vec()).unwrap();
-        assert!(&body.contains(
-            &String::from_utf8(web::Bytes::from(
-                "# HELP actix_web_prom_my_http_request_duration HTTP request duration in seconds for all requests
-# TYPE actix_web_prom_my_http_request_duration histogram
-actix_web_prom_my_http_request_duration_bucket{endpoint=\"/health_check\",method=\"GET\",status=\"200\",le=\"0.005\"} 1
-"
-        ).to_vec()).unwrap()));
-        assert!(body.contains(
-            &String::from_utf8(
-                web::Bytes::from(
-                    "# HELP actix_web_prom_my_http_requests_total Total number of HTTP requests
-# TYPE actix_web_prom_my_http_requests_total counter
-actix_web_prom_my_http_requests_total{endpoint=\"/health_check\",method=\"GET\",status=\"200\"} 1
-"
-                )
-                .to_vec()
-            )
-            .unwrap()
-        ));
-    }
-
-    #[test]
-    fn compat_with_non_boxed_middleware() {
-        let _app = App::new()
-            .wrap(ActixWebMetricsBuilder::new("").build().unwrap())
-            .wrap(actix_web::middleware::Logger::default())
-            .route("", web::to(|| async { "" }));
-
-        let _app = App::new()
-            .wrap(actix_web::middleware::Logger::default())
-            .wrap(ActixWebMetricsBuilder::new("").build().unwrap())
-            .route("", web::to(|| async { "" }));
-
-        let _scope = Scope::new("")
-            .wrap(ActixWebMetricsBuilder::new("").build().unwrap())
-            .route("", web::to(|| async { "" }));
-
-        let _resource = Resource::new("")
-            .wrap(ActixWebMetricsBuilder::new("").build().unwrap())
-            .route(web::to(|| async { "" }));
-    }
-
-    #[actix_web::test]
-    async fn middleware_excludes() {
-        let prometheus = ActixWebMetricsBuilder::new("actix_web_prom")
-            .endpoint("/metrics")
-            .exclude("/ping")
-            .exclude_regex("/readyz/.*")
-            .exclude_status(StatusCode::NOT_FOUND)
-            .build()
-            .unwrap();
-
-        let app = init_service(
-            App::new()
-                .wrap(prometheus)
-                .service(web::resource("/health_check").to(HttpResponse::Ok))
-                .service(web::resource("/ping").to(HttpResponse::Ok))
-                .service(web::resource("/readyz/{subsystem}").to(HttpResponse::Ok)),
-        )
-        .await;
-
-        let res = call_service(&app, TestRequest::with_uri("/health_check").to_request()).await;
-        assert!(res.status().is_success());
-        assert_eq!(read_body(res).await, "");
-
-        let res = call_service(&app, TestRequest::with_uri("/ping").to_request()).await;
-        assert!(res.status().is_success());
-        assert_eq!(read_body(res).await, "");
-
-        let res = call_service(&app, TestRequest::with_uri("/readyz/database").to_request()).await;
-        assert!(res.status().is_success());
-        assert_eq!(read_body(res).await, "");
-
-        let res = call_service(&app, TestRequest::with_uri("/notfound").to_request()).await;
-        assert!(res.status().is_client_error());
-        assert_eq!(read_body(res).await, "");
-
-        let res = call_service(&app, TestRequest::with_uri("/metrics").to_request()).await;
-        assert_eq!(
-            res.headers().get(CONTENT_TYPE).unwrap(),
-            "text/plain; version=0.0.4; charset=utf-8"
-        );
-        let body = String::from_utf8(read_body(res).await.to_vec()).unwrap();
-        assert!(&body.contains(
-            &String::from_utf8(
-                web::Bytes::from(
-                    "# HELP actix_web_prom_http_requests_total Total number of HTTP requests
-# TYPE actix_web_prom_http_requests_total counter
-actix_web_prom_http_requests_total{endpoint=\"/health_check\",method=\"GET\",status=\"200\"} 1
-"
-                )
-                .to_vec()
-            )
-            .unwrap()
-        ));
-
-        assert!(!&body.contains("endpoint=\"/ping\""));
-        assert!(!&body.contains("endpoint=\"/readyz"));
-        assert!(!body.contains("endpoint=\"/notfound"));
     }
 }

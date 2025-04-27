@@ -1,6 +1,6 @@
 [package]
 name = "actix-web-metrics"
-version = "0.9.0"
+version = "0.1.0"
 authors = ["Ross Sullivan <rosssullivan101@gmail.com>"]
 edition = "2021"
 description = "Metrics.rs integration for Actix Web"
@@ -10,14 +10,17 @@ keywords = ["actix", "actix-web", "middleware", "prometheus", "web"]
 categories = ["web-programming"]
 license = "MIT"
 readme = "README.md"
-exclude = [".gitignore", ".github/", "README.tpl", "examples/"]
+exclude = [".gitignore", ".github/", "examples/"]
 
 [dependencies]
 strfmt = { version = "0.2.4" }
 actix-web = { version = "4", default-features = false, features = ["macros"] }
 futures-core = "0.3"
 pin-project-lite = "0.2"
-regex = "^1.4"
+regex = "1.11"
 log = "0.4"
 metrics = "0.24"
 
+[dev-dependencies]
+metrics-util = "0.19.1"
+insta = { version = "1.43", features = ["filters"]}
