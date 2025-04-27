@@ -26,6 +26,7 @@ use std::collections::HashMap;
 
 use actix_web::{web, App, HttpResponse, HttpServer};
 use actix_web_metrics::{ActixWebMetrics, ActixWebMetricsBuilder};
+use metrics_exporter_prometheus::PrometheusBuilder;
 
 async fn health() -> HttpResponse {
     HttpResponse::Ok().finish()
@@ -33,22 +34,31 @@ async fn health() -> HttpResponse {
 
 #[actix_web::main]
 async fn main() -> std::io::Result<()> {
+    // Register a metrics exporter.
+    // In this case we will just expose a Prometheus metrics endpoint on localhost:9000/metrics
+    //
+    // You can change this to another exporter based on your needs.
+    // See https://github.com/metrics-rs/metrics for more info.
+# if false {
+    PrometheusBuilder::new().install().unwrap();
+# }
+    // Configure & build the Actix-Web middleware layer
     let mut labels = HashMap::new();
     labels.insert("label1".to_string(), "value1".to_string());
-    let prometheus = ActixWebMetricsBuilder::new()
+    let metrics = ActixWebMetricsBuilder::new()
         .const_labels(labels)
         .build()
         .unwrap();
 
 # if false {
-        HttpServer::new(move || {
-            App::new()
-                .wrap(prometheus.clone())
-                .service(web::resource("/health").to(health))
-        })
-        .bind("127.0.0.1:8080")?
-        .run()
-        .await?;
+    HttpServer::new(move || {
+        App::new()
+            .wrap(metrics.clone())
+            .service(web::resource("/health").to(health))
+    })
+    .bind("127.0.0.1:8080")?
+    .run()
+    .await?;
 # }
     Ok(())
 }
@@ -98,33 +108,25 @@ responder.
 
 ```rust
 use actix_web::{web, App, HttpResponse, HttpServer};
-use actix_web_prom::{PrometheusMetrics, PrometheusMetricsBuilder};
-use prometheus::{opts, IntCounterVec};
+use actix_web_metrics::{ActixWebMetrics, ActixWebMetricsBuilder};
+use metrics_exporter_prometheus::PrometheusBuilder;
+use metrics::counter;
 
-async fn health(counter: web::Data<IntCounterVec>) -> HttpResponse {
-    counter.with_label_values(&["endpoint", "method", "status"]).inc();
+async fn health() -> HttpResponse {
+    counter!("my_custom_counter").increment(1);
     HttpResponse::Ok().finish()
 }
 
 #[actix_web::main]
 async fn main() -> std::io::Result<()> {
-    let prometheus = PrometheusMetricsBuilder::new("api")
-        .endpoint("/metrics")
+    let metrics = ActixWebMetricsBuilder::new()
         .build()
-        .unwrap();
-
-    let counter_opts = opts!("counter", "some random counter").namespace("api");
-    let counter = IntCounterVec::new(counter_opts, &["endpoint", "method", "status"]).unwrap();
-    prometheus
-        .registry
-        .register(Box::new(counter.clone()))
         .unwrap();
 
 # if false {
         HttpServer::new(move || {
             App::new()
-                .wrap(prometheus.clone())
-                .data(counter.clone())
+                .wrap(metrics.clone())
                 .service(web::resource("/health").to(health))
         })
         .bind("127.0.0.1:8080")?
@@ -133,78 +135,6 @@ async fn main() -> std::io::Result<()> {
 # }
     Ok(())
 }
-```
-
-## Custom `Registry`
-
-Some apps might have more than one `actix_web::HttpServer`.
-If that's the case, you might want to use your own registry:
-
-```rust
-use actix_web::{web, App, HttpResponse, HttpServer};
-use actix_web_prom::{PrometheusMetrics, PrometheusMetricsBuilder};
-use actix_web::rt::System;
-use prometheus::Registry;
-use std::thread;
-
-async fn public_handler() -> HttpResponse {
-    HttpResponse::Ok().body("Everyone can see it!")
-}
-
-async fn private_handler() -> HttpResponse {
-    HttpResponse::Ok().body("This can be hidden behind a firewall")
-}
-
-fn main() -> std::io::Result<()> {
-    let shared_registry = Registry::new();
-
-    let private_metrics = PrometheusMetricsBuilder::new("private_api")
-        .registry(shared_registry.clone())
-        .endpoint("/metrics")
-        .build()
-        // It is safe to unwrap when __no other app has the same namespace__
-        .unwrap();
-
-    let public_metrics = PrometheusMetricsBuilder::new("public_api")
-        .registry(shared_registry.clone())
-        // Metrics should not be available from the outside
-        // so no endpoint is registered
-        .build()
-        .unwrap();
-
-# if false {
-    let private_thread = thread::spawn(move || {
-        let mut sys = System::new();
-        let srv = HttpServer::new(move || {
-            App::new()
-                .wrap(private_metrics.clone())
-                .service(web::resource("/test").to(private_handler))
-        })
-        .bind("127.0.0.1:8081")
-        .unwrap()
-        .run();
-        sys.block_on(srv).unwrap();
-    });
-
-    let public_thread = thread::spawn(|| {
-        let mut sys = System::new();
-        let srv = HttpServer::new(move || {
-            App::new()
-                .wrap(public_metrics.clone())
-                .service(web::resource("/test").to(public_handler))
-        })
-        .bind("127.0.0.1:8082")
-        .unwrap()
-        .run();
-        sys.block_on(srv).unwrap();
-    });
-
-    private_thread.join().unwrap();
-    public_thread.join().unwrap();
-# }
-    Ok(())
-}
-
 ```
 
 ## Configurable routes pattern cardinality
@@ -218,7 +148,7 @@ For that you need to add a middleware to pass some [extensions data](https://blo
 
 ```rust
 use actix_web::{dev::Service, web, HttpMessage, HttpResponse};
-use actix_web_prom::MetricsConfig;
+use actix_web_metrics::MetricsConfig;
 
 async fn handler() -> HttpResponse {
     HttpResponse::Ok().finish()
@@ -241,10 +171,9 @@ See the full example `with_cardinality_on_params.rs`.
 If you want to rename the default metrics, you can use `ActixMetricsConfiguration` to do so.
 
 ```rust
-use actix_web_prom::{PrometheusMetricsBuilder, ActixMetricsConfiguration};
+use actix_web_metrics::{ActixWebMetricsBuilder, ActixMetricsConfiguration};
 
-PrometheusMetricsBuilder::new("api")
-    .endpoint("/metrics")
+ActixWebMetricsBuilder::new()
     .metrics_configuration(
         ActixMetricsConfiguration::default()
         .http_requests_duration_seconds_name("my_http_request_duration"),
@@ -264,10 +193,9 @@ metric*. So, if you want metrics about every single path that is hit, even if it
 exist, avoid this section altogether.
 
 ```rust,no_run
-use actix_web_prom::PrometheusMetricsBuilder;
+use actix_web_metrics::ActixWebMetricsBuilder;
 
-PrometheusMetricsBuilder::new("api")
-    .endpoint("/metrics")
+ActixWebMetricsBuilder::new()
     .mask_unmatched_patterns("UNKNOWN")
     .build()
     .unwrap();
