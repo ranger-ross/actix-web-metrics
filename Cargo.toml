@@ -24,3 +24,4 @@ metrics = "0.24"
 [dev-dependencies]
 metrics-util = "0.19.1"
 insta = { version = "1.43", features = ["filters"]}
+metrics-exporter-prometheus = "0.17.0"
