@@ -346,7 +346,7 @@ pub struct MetricsConfig {
 ///
 /// It allows setting optional parameters like registry, buckets, etc.
 #[derive(Debug)]
-pub struct MetricsMiddlewareBuilder {
+pub struct ActixWebMetricsBuilder {
     namespace: Option<String>,
     const_labels: HashMap<String, String>,
     exclude: HashSet<String>,
@@ -356,7 +356,7 @@ pub struct MetricsMiddlewareBuilder {
     metrics_configuration: ActixMetricsConfiguration,
 }
 
-impl MetricsMiddlewareBuilder {
+impl ActixWebMetricsBuilder {
     /// Create new `PrometheusMetricsBuilder`
     ///
     /// namespace example: "actix"
@@ -420,7 +420,7 @@ impl MetricsMiddlewareBuilder {
     ///
     /// WARNING: This call purposefully leaks the memory of metrics and label names to avoid
     /// allocations during runtime. Avoid calling more than once.
-    pub fn build(self) -> Result<MetricsMiddleware, Box<dyn std::error::Error + Send + Sync>> {
+    pub fn build(self) -> Result<ActixWebMetrics, Box<dyn std::error::Error + Send + Sync>> {
         let namespace_prefix = if let Some(ns) = self.namespace {
             format!("{ns}_")
         } else {
@@ -433,14 +433,17 @@ impl MetricsMiddlewareBuilder {
                 .http_requests_duration_seconds_name
         );
         describe_histogram!(
-            http_requests_duration_seconds_name,
+            http_requests_duration_seconds_name.clone(),
             "HTTP request duration in seconds for all requests"
         );
         let http_requests_total_name = format!(
             "{namespace_prefix}{}",
             self.metrics_configuration.http_requests_total_name
         );
-        describe_counter!(http_requests_total_name, "Total number of HTTP requests");
+        describe_counter!(
+            http_requests_total_name.clone(),
+            "Total number of HTTP requests"
+        );
 
         let version: Option<&'static str> =
             if let Some(ref v) = self.metrics_configuration.labels.version {
@@ -458,20 +461,16 @@ impl MetricsMiddlewareBuilder {
             })
             .collect();
 
-        Ok(MetricsMiddleware {
+        Ok(ActixWebMetrics {
             exclude: self.exclude,
             exclude_regex: self.exclude_regex,
             exclude_status: self.exclude_status,
             enable_http_version_label: self.metrics_configuration.labels.version.is_some(),
             unmatched_patterns_mask: self.unmatched_patterns_mask,
-            names: NameConfig {
-                http_requests_total: Box::leak(Box::new(
-                    self.metrics_configuration.http_requests_total_name.clone(),
-                )),
+            names: MetricsMetadata {
+                http_requests_total: Box::leak(Box::new(http_requests_total_name)),
                 http_requests_duration_seconds: Box::leak(Box::new(
-                    self.metrics_configuration
-                        .http_requests_duration_seconds_name
-                        .clone(),
+                    http_requests_duration_seconds_name,
                 )),
                 endpoint: Box::leak(Box::new(self.metrics_configuration.labels.endpoint)),
                 method: Box::leak(Box::new(self.metrics_configuration.labels.method)),
@@ -570,9 +569,9 @@ impl ActixMetricsConfiguration {
 }
 
 /// Static references to variable metrics/label names.
-/// This config exists to avoid allocations during execution.
+/// This config primarily exists to avoid allocations during execution.
 #[derive(Debug, Clone)]
-struct NameConfig {
+struct MetricsMetadata {
     http_requests_total: &'static str,
     http_requests_duration_seconds: &'static str,
     endpoint: &'static str,
@@ -582,18 +581,17 @@ struct NameConfig {
     const_labels: Vec<(&'static str, String)>,
 }
 
-/// By default two metrics are tracked (this assumes the namespace `actix_web_prom`):
+/// By default two metrics are tracked:
 ///
-///   - `actix_web_prom_http_requests_total` (labels: endpoint, method, status): the total
+///   - `http_requests_total` (labels: endpoint, method, status): the total
 ///     number of HTTP requests handled by the actix `HttpServer`.
 ///
-///   - `actix_web_prom_http_requests_duration_seconds` (labels: endpoint, method,
-///     status): the request duration for all HTTP requests handled by the actix
-///     `HttpServer`.
+///   - `http_requests_duration_seconds` (labels: endpoint, method, status):
+///      the request duration for all HTTP requests handled by the actix `HttpServer`.
 #[derive(Clone)]
 #[must_use = "must be set up as middleware for actix-web"]
-pub struct MetricsMiddleware {
-    pub(crate) names: NameConfig,
+pub struct ActixWebMetrics {
+    pub(crate) names: MetricsMetadata,
 
     pub(crate) exclude: HashSet<String>,
     pub(crate) exclude_regex: RegexSet,
@@ -602,7 +600,7 @@ pub struct MetricsMiddleware {
     pub(crate) unmatched_patterns_mask: Option<String>,
 }
 
-impl MetricsMiddleware {
+impl ActixWebMetrics {
     fn update_metrics(
         &self,
         http_version: Version,
@@ -636,12 +634,10 @@ impl MetricsMiddleware {
             final_pattern
         };
 
-        // TODO: Optimize this vector to avoid resizing with `const_labels`
-        let mut labels = vec![
-            (self.names.endpoint, final_pattern.to_string()),
-            (self.names.method, method.as_str().to_string()),
-            (self.names.status, status.as_str().to_string()),
-        ];
+        let mut labels = Vec::with_capacity(4 + self.names.const_labels.len());
+        labels.push((self.names.endpoint, final_pattern.to_string()));
+        labels.push((self.names.method, method.as_str().to_string()));
+        labels.push((self.names.status, status.as_str().to_string()));
 
         if self.enable_http_version_label {
             labels.push((
@@ -674,18 +670,18 @@ impl MetricsMiddleware {
     }
 }
 
-impl<S, B> Transform<S, ServiceRequest> for MetricsMiddleware
+impl<S, B> Transform<S, ServiceRequest> for ActixWebMetrics
 where
     S: Service<ServiceRequest, Response = ServiceResponse<B>, Error = Error>,
 {
     type Response = ServiceResponse<StreamLog<B>>;
     type Error = Error;
     type InitError = ();
-    type Transform = PrometheusMetricsMiddleware<S>;
+    type Transform = MetricsMiddleware<S>;
     type Future = Ready<Result<Self::Transform, Self::InitError>>;
 
     fn new_transform(&self, service: S) -> Self::Future {
-        ready(Ok(PrometheusMetricsMiddleware {
+        ready(Ok(MetricsMiddleware {
             service,
             inner: Arc::new(self.clone()),
         }))
@@ -701,7 +697,7 @@ pin_project! {
         #[pin]
         fut: S::Future,
         time: Instant,
-        inner: Arc<MetricsMiddleware>,
+        inner: Arc<ActixWebMetrics>,
         _t: PhantomData<()>,
     }
 }
@@ -778,12 +774,12 @@ where
 
 /// Middleware service for PrometheusMetrics
 #[doc(hidden)]
-pub struct PrometheusMetricsMiddleware<S> {
+pub struct MetricsMiddleware<S> {
     service: S,
-    inner: Arc<MetricsMiddleware>,
+    inner: Arc<ActixWebMetrics>,
 }
 
-impl<S, B> Service<ServiceRequest> for PrometheusMetricsMiddleware<S>
+impl<S, B> Service<ServiceRequest> for MetricsMiddleware<S>
 where
     S: Service<ServiceRequest, Response = ServiceResponse<B>, Error = Error>,
 {
@@ -810,7 +806,7 @@ pin_project! {
         body: B,
         size: usize,
         clock: Instant,
-        inner: Arc<MetricsMiddleware>,
+        inner: Arc<ActixWebMetrics>,
         status: StatusCode,
         // a route pattern with some params not-filled and some params filled in by user-defined
         mixed_pattern: String,
@@ -864,7 +860,7 @@ mod tests {
 
     #[actix_web::test]
     async fn middleware_basic() {
-        let prometheus = MetricsMiddlewareBuilder::new("actix_web_prom")
+        let prometheus = ActixWebMetricsBuilder::new("actix_web_prom")
             .endpoint("/metrics")
             .build()
             .unwrap();
@@ -909,7 +905,7 @@ actix_web_prom_http_requests_total{endpoint=\"/health_check\",method=\"GET\",sta
 
     #[actix_web::test]
     async fn middleware_http_version() {
-        let prometheus = MetricsMiddlewareBuilder::new("actix_web_prom")
+        let prometheus = ActixWebMetricsBuilder::new("actix_web_prom")
             .endpoint("/metrics")
             .metrics_configuration(
                 ActixMetricsConfiguration::default()
@@ -959,21 +955,21 @@ actix_web_prom_http_requests_total{endpoint=\"/health_check\",method=\"GET\",sta
                 &String::from_utf8(web::Bytes::from(
                     format!(
                         "actix_web_prom_http_requests_duration_seconds_bucket{{endpoint=\"/health_check\",method=\"GET\",status=\"200\",version=\"{}\",le=\"0.005\"}} {}
-", MetricsMiddleware::http_version_label(http_version), repeats)
+", ActixWebMetrics::http_version_label(http_version), repeats)
             ).to_vec()).unwrap()));
 
             assert!(&body.contains(
                 &String::from_utf8(web::Bytes::from(
                     format!(
                         "actix_web_prom_http_requests_total{{endpoint=\"/health_check\",method=\"GET\",status=\"200\",version=\"{}\"}} {}
-", MetricsMiddleware::http_version_label(http_version), repeats)
+", ActixWebMetrics::http_version_label(http_version), repeats)
             ).to_vec()).unwrap()));
         }
     }
 
     #[actix_web::test]
     async fn middleware_scope() {
-        let prometheus = MetricsMiddlewareBuilder::new("actix_web_prom")
+        let prometheus = ActixWebMetricsBuilder::new("actix_web_prom")
             .endpoint("/internal/metrics")
             .build()
             .unwrap();
@@ -1028,7 +1024,7 @@ actix_web_prom_http_requests_total{endpoint=\"/internal/health_check\",method=\"
 
     #[actix_web::test]
     async fn middleware_match_pattern() {
-        let prometheus = MetricsMiddlewareBuilder::new("actix_web_prom")
+        let prometheus = ActixWebMetricsBuilder::new("actix_web_prom")
             .endpoint("/metrics")
             .build()
             .unwrap();
@@ -1069,7 +1065,7 @@ actix_web_prom_http_requests_total{endpoint=\"/resource/{id}\",method=\"GET\",st
 
     #[actix_web::test]
     async fn middleware_with_mask_unmatched_pattern() {
-        let prometheus = MetricsMiddlewareBuilder::new("actix_web_prom")
+        let prometheus = ActixWebMetricsBuilder::new("actix_web_prom")
             .endpoint("/metrics")
             .mask_unmatched_patterns("UNKNOWN")
             .build()
@@ -1107,7 +1103,7 @@ actix_web_prom_http_requests_total{endpoint=\"/resource/{id}\",method=\"GET\",st
     #[actix_web::test]
     async fn middleware_with_mixed_params_cardinality() {
         // we want to keep metrics label on the "cheap param" but not on the "expensive" param
-        let prometheus = MetricsMiddlewareBuilder::new("actix_web_prom")
+        let prometheus = ActixWebMetricsBuilder::new("actix_web_prom")
             .endpoint("/metrics")
             .build()
             .unwrap();
@@ -1183,7 +1179,7 @@ actix_web_prom_http_requests_total{endpoint=\"/resource/{id}\",method=\"GET\",st
 
     #[actix_web::test]
     async fn middleware_metrics_exposed_with_conflicting_pattern() {
-        let prometheus = MetricsMiddlewareBuilder::new("actix_web_prom")
+        let prometheus = ActixWebMetricsBuilder::new("actix_web_prom")
             .endpoint("/metrics")
             .build()
             .unwrap();
@@ -1209,7 +1205,7 @@ actix_web_prom_http_requests_total{endpoint=\"/resource/{id}\",method=\"GET\",st
 
     #[actix_web::test]
     async fn middleware_basic_failure() {
-        let prometheus = MetricsMiddlewareBuilder::new("actix_web_prom")
+        let prometheus = ActixWebMetricsBuilder::new("actix_web_prom")
             .endpoint("/prometheus")
             .build()
             .unwrap();
@@ -1242,7 +1238,7 @@ actix_web_prom_http_requests_total{endpoint=\"/health_checkz\",method=\"GET\",st
         let counter_opts = Opts::new("counter", "some random counter").namespace("actix_web_prom");
         let counter = IntCounterVec::new(counter_opts, &["endpoint", "method", "status"]).unwrap();
 
-        let prometheus = MetricsMiddlewareBuilder::new("actix_web_prom")
+        let prometheus = ActixWebMetricsBuilder::new("actix_web_prom")
             .endpoint("/metrics")
             .build()
             .unwrap();
@@ -1301,7 +1297,7 @@ actix_web_prom_counter{endpoint=\"endpoint\",method=\"method\",status=\"status\"
     #[actix_web::test]
     async fn middleware_none_endpoint() {
         // Init PrometheusMetrics with none URL
-        let prometheus = MetricsMiddlewareBuilder::new("actix_web_prom")
+        let prometheus = ActixWebMetricsBuilder::new("actix_web_prom")
             .build()
             .unwrap();
 
@@ -1343,7 +1339,7 @@ actix_web_prom_counter{endpoint=\"endpoint\",method=\"method\",status=\"status\"
         counter.inc_by(10_f64);
 
         // Init PrometheusMetrics
-        let prometheus = MetricsMiddlewareBuilder::new("actix_web_prom")
+        let prometheus = ActixWebMetricsBuilder::new("actix_web_prom")
             .registry(registry)
             .endpoint("/metrics")
             .build()
@@ -1383,7 +1379,7 @@ actix_web_prom_counter{endpoint=\"endpoint\",method=\"method\",status=\"status\"
         let mut labels = HashMap::new();
         labels.insert("label1".to_string(), "value1".to_string());
         labels.insert("label2".to_string(), "value2".to_string());
-        let prometheus = MetricsMiddlewareBuilder::new("actix_web_prom")
+        let prometheus = ActixWebMetricsBuilder::new("actix_web_prom")
             .endpoint("/metrics")
             .const_labels(labels)
             .build()
@@ -1429,7 +1425,7 @@ actix_web_prom_http_requests_total{endpoint=\"/health_check\",label1=\"value1\",
             .http_requests_duration_seconds_name("my_http_request_duration")
             .http_requests_total_name("my_http_requests_total");
 
-        let prometheus = MetricsMiddlewareBuilder::new("actix_web_prom")
+        let prometheus = ActixWebMetricsBuilder::new("actix_web_prom")
             .endpoint("/metrics")
             .metrics_configuration(metrics_config)
             .build()
@@ -1472,27 +1468,27 @@ actix_web_prom_my_http_requests_total{endpoint=\"/health_check\",method=\"GET\",
     #[test]
     fn compat_with_non_boxed_middleware() {
         let _app = App::new()
-            .wrap(MetricsMiddlewareBuilder::new("").build().unwrap())
+            .wrap(ActixWebMetricsBuilder::new("").build().unwrap())
             .wrap(actix_web::middleware::Logger::default())
             .route("", web::to(|| async { "" }));
 
         let _app = App::new()
             .wrap(actix_web::middleware::Logger::default())
-            .wrap(MetricsMiddlewareBuilder::new("").build().unwrap())
+            .wrap(ActixWebMetricsBuilder::new("").build().unwrap())
             .route("", web::to(|| async { "" }));
 
         let _scope = Scope::new("")
-            .wrap(MetricsMiddlewareBuilder::new("").build().unwrap())
+            .wrap(ActixWebMetricsBuilder::new("").build().unwrap())
             .route("", web::to(|| async { "" }));
 
         let _resource = Resource::new("")
-            .wrap(MetricsMiddlewareBuilder::new("").build().unwrap())
+            .wrap(ActixWebMetricsBuilder::new("").build().unwrap())
             .route(web::to(|| async { "" }));
     }
 
     #[actix_web::test]
     async fn middleware_excludes() {
-        let prometheus = MetricsMiddlewareBuilder::new("actix_web_prom")
+        let prometheus = ActixWebMetricsBuilder::new("actix_web_prom")
             .endpoint("/metrics")
             .exclude("/ping")
             .exclude_regex("/readyz/.*")
