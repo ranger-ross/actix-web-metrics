@@ -2,7 +2,7 @@ use std::collections::HashMap;
 
 use actix_web::dev::Service;
 use actix_web::http::{StatusCode, Version};
-use actix_web::test::{call_and_read_body, call_service, init_service, read_body, TestRequest};
+use actix_web::test::{call_service, init_service, read_body, TestRequest};
 use actix_web::{web, App, HttpMessage, HttpResponse, Resource, Scope};
 use actix_web_metrics::{
     ActixMetricsConfiguration, ActixWebMetricsBuilder, LabelsConfiguration, MetricsConfig,
