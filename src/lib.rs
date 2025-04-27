@@ -312,6 +312,7 @@ http_requests_duration_seconds_sum{endpoint="UNKNOWN",method="GET",status="400"}
 #![deny(missing_docs)]
 
 use log::warn;
+use metrics::{counter, describe_counter, describe_histogram, histogram};
 use std::collections::{HashMap, HashSet};
 use std::future::{ready, Future, Ready};
 use std::marker::PhantomData;
@@ -347,12 +348,12 @@ pub struct MetricsConfig {
     pub cardinality_keep_params: Vec<String>,
 }
 
-#[derive(Debug)]
 /// Builder to create new PrometheusMetrics struct.HistogramVec
 ///
 /// It allows setting optional parameters like registry, buckets, etc.
+#[derive(Debug)]
 pub struct PrometheusMetricsBuilder {
-    namespace: String,
+    namespace: Option<String>,
     endpoint: Option<String>,
     const_labels: HashMap<String, String>,
     registry: Registry,
@@ -368,9 +369,9 @@ impl PrometheusMetricsBuilder {
     /// Create new `PrometheusMetricsBuilder`
     ///
     /// namespace example: "actix"
-    pub fn new(namespace: &str) -> Self {
+    pub fn new() -> Self {
         Self {
-            namespace: namespace.into(),
+            namespace: None,
             endpoint: None,
             const_labels: HashMap::new(),
             registry: Registry::new(),
@@ -411,6 +412,12 @@ impl PrometheusMetricsBuilder {
         self
     }
 
+    /// Set namespace
+    pub fn namespace(mut self, value: &str) -> Self {
+        self.namespace = Some(value.into());
+        self
+    }
+
     /// Ignore and do not record metrics for specified path.
     pub fn exclude<T: Into<String>>(mut self, path: T) -> Self {
         self.exclude.insert(path.into());
@@ -444,6 +451,9 @@ impl PrometheusMetricsBuilder {
     }
 
     /// Instantiate `PrometheusMetrics` struct
+    ///
+    /// WARNING: This call purposefully leaks the memory of metrics and label names to avoid
+    /// allocations during runtime. Avoid calling more than once.
     pub fn build(self) -> Result<PrometheusMetrics, Box<dyn std::error::Error + Send + Sync>> {
         let labels_vec = self.metrics_configuration.labels.clone().to_vec();
         let labels = &labels_vec.iter().map(|s| s.as_str()).collect::<Vec<&str>>();
@@ -454,7 +464,7 @@ impl PrometheusMetricsBuilder {
                 .to_owned(),
             "Total number of HTTP requests",
         )
-        .namespace(&self.namespace)
+        .namespace(&self.namespace.clone().unwrap_or("".to_string()))
         .const_labels(self.const_labels.clone());
 
         let http_requests_total = IntCounterVec::new(http_requests_total_opts, labels)?;
@@ -465,7 +475,7 @@ impl PrometheusMetricsBuilder {
                 .to_owned(),
             "HTTP request duration in seconds for all requests",
         )
-        .namespace(&self.namespace)
+        .namespace(&self.namespace.clone().unwrap_or("".to_string()))
         .buckets(self.buckets.to_vec())
         .const_labels(self.const_labels.clone());
 
@@ -477,11 +487,47 @@ impl PrometheusMetricsBuilder {
         self.registry
             .register(Box::new(http_requests_duration_seconds.clone()))?;
 
+        let namespace_prefix = if let Some(ns) = self.namespace {
+            format!("{ns}_")
+        } else {
+            "".to_string()
+        };
+
+        let http_requests_duration_seconds_name = format!(
+            "{namespace_prefix}{}",
+            self.metrics_configuration
+                .http_requests_duration_seconds_name
+        );
+        describe_histogram!(
+            http_requests_duration_seconds_name,
+            "HTTP request duration in seconds for all requests"
+        );
+        let http_requests_total_name = format!(
+            "{namespace_prefix}{}",
+            self.metrics_configuration.http_requests_total_name
+        );
+        describe_counter!(http_requests_total_name, "Total number of HTTP requests");
+
+        let version: Option<&'static str> =
+            if let Some(ref v) = self.metrics_configuration.labels.version {
+                Some(Box::leak(Box::new(v.clone())))
+            } else {
+                None
+            };
+
+        let cl: Vec<(&'static str, String)> = self
+            .const_labels
+            .iter()
+            .map(|(k, v)| {
+                let k: &'static str = Box::leak(Box::new(k.clone()));
+                (k, v.clone())
+            })
+            .collect();
+
         Ok(PrometheusMetrics {
             http_requests_total,
             http_requests_duration_seconds,
             registry: self.registry,
-            namespace: self.namespace,
             endpoint: self.endpoint,
             const_labels: self.const_labels,
             exclude: self.exclude,
@@ -489,12 +535,27 @@ impl PrometheusMetricsBuilder {
             exclude_status: self.exclude_status,
             enable_http_version_label: self.metrics_configuration.labels.version.is_some(),
             unmatched_patterns_mask: self.unmatched_patterns_mask,
+            names: NameConfig {
+                http_requests_total: Box::leak(Box::new(
+                    self.metrics_configuration.http_requests_total_name.clone(),
+                )),
+                http_requests_duration_seconds: Box::leak(Box::new(
+                    self.metrics_configuration
+                        .http_requests_duration_seconds_name
+                        .clone(),
+                )),
+                endpoint: Box::leak(Box::new(self.metrics_configuration.labels.endpoint)),
+                method: Box::leak(Box::new(self.metrics_configuration.labels.method)),
+                status: Box::leak(Box::new(self.metrics_configuration.labels.status)),
+                version,
+                const_labels: cl,
+            },
         })
     }
 }
 
-#[derive(Debug, Clone)]
 ///Configurations for the labels used in metrics
+#[derive(Debug, Clone)]
 pub struct LabelsConfiguration {
     endpoint: String,
     method: String,
@@ -551,10 +612,10 @@ impl LabelsConfiguration {
     }
 }
 
-#[derive(Debug, Clone)]
 /// Configuration for the collected metrics
 ///
 /// Stores individual metric configuration objects
+#[derive(Debug, Clone)]
 pub struct ActixMetricsConfiguration {
     http_requests_total_name: String,
     http_requests_duration_seconds_name: String,
@@ -591,8 +652,19 @@ impl ActixMetricsConfiguration {
     }
 }
 
-#[derive(Clone)]
-#[must_use = "must be set up as middleware for actix-web"]
+/// Static references to variable metrics/label names.
+/// This config exists to avoid allocations during execution.
+#[derive(Debug, Clone)]
+struct NameConfig {
+    http_requests_total: &'static str,
+    http_requests_duration_seconds: &'static str,
+    endpoint: &'static str,
+    method: &'static str,
+    status: &'static str,
+    version: Option<&'static str>,
+    const_labels: Vec<(&'static str, String)>,
+}
+
 /// By default two metrics are tracked (this assumes the namespace `actix_web_prom`):
 ///
 ///   - `actix_web_prom_http_requests_total` (labels: endpoint, method, status): the total
@@ -601,14 +673,15 @@ impl ActixMetricsConfiguration {
 ///   - `actix_web_prom_http_requests_duration_seconds` (labels: endpoint, method,
 ///     status): the request duration for all HTTP requests handled by the actix
 ///     `HttpServer`.
+#[derive(Clone)]
+#[must_use = "must be set up as middleware for actix-web"]
 pub struct PrometheusMetrics {
+    pub(crate) names: NameConfig,
     pub(crate) http_requests_total: IntCounterVec,
     pub(crate) http_requests_duration_seconds: HistogramVec,
 
     /// exposed registry for custom prometheus metrics
     pub registry: Registry,
-    #[allow(dead_code)]
-    pub(crate) namespace: String,
     pub(crate) endpoint: Option<String>,
     #[allow(dead_code)]
     pub(crate) const_labels: HashMap<String, String>,
@@ -693,13 +766,33 @@ impl PrometheusMetrics {
             &label_values[..3]
         };
 
+        // TODO: Optimize this vector to avoid resizing with `const_labels`
+        let mut labels = vec![
+            (self.names.endpoint, final_pattern.to_string()),
+            (self.names.method, method.as_str().to_string()),
+            (self.names.status, status.as_str().to_string()),
+        ];
+
+        if self.enable_http_version_label {
+            labels.push((
+                self.names.version.unwrap(),
+                Self::http_version_label(http_version).to_string(),
+            ));
+        }
+
+        for (k, v) in &self.names.const_labels {
+            labels.push((k, v.clone()));
+        }
+
         let elapsed = clock.elapsed();
         let duration =
             (elapsed.as_secs() as f64) + f64::from(elapsed.subsec_nanos()) / 1_000_000_000_f64;
+        histogram!(self.names.http_requests_duration_seconds, &labels).record(duration);
         self.http_requests_duration_seconds
             .with_label_values(label_values)
             .observe(duration);
 
+        counter!(self.names.http_requests_total, &labels).increment(1);
         self.http_requests_total
             .with_label_values(label_values)
             .inc();
@@ -847,8 +940,8 @@ where
     }
 }
 
-#[doc(hidden)]
 /// Middleware service for PrometheusMetrics
+#[doc(hidden)]
 pub struct PrometheusMetricsMiddleware<S> {
     service: S,
     inner: Arc<PrometheusMetrics>,

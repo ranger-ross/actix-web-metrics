@@ -1,9 +1,9 @@
 [package]
-name = "actix-web-prom"
+name = "actix-web-metrics"
 version = "0.9.0"
-authors = ["Norberto Lopes <nlopes.ml@gmail.com>"]
+authors = ["Ross Sullivan <rosssullivan101@gmail.com>"]
 edition = "2021"
-description = "Actix Web middleware to expose Prometheus metrics"
+description = "Metrics.rs integration for Actix Web"
 documentation = "https://docs.rs/actix-web-prom"
 repository = "https://github.com/nlopes/actix-web-prom.git"
 keywords = ["actix", "actix-web", "middleware", "prometheus", "web"]
@@ -14,12 +14,17 @@ exclude = [".gitignore", ".github/", "README.tpl", "examples/"]
 
 [dependencies]
 strfmt = { version = "0.2.4" }
-actix-web = { version = "4.0", default-features = false, features = ["macros"] }
+actix-web = { version = "4", default-features = false, features = ["macros"] }
 futures-core = "0.3"
 pin-project-lite = "0.2"
-prometheus = { version = "0.14", default-features = false }
 regex = "^1.4"
 log = "0.4"
+
+metrics = "0.24"
+
+# TODO: remove
+prometheus = { version = "0.14", default-features = false }
+
 
 [features]
 process = ["prometheus/process"]
