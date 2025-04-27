@@ -19,12 +19,5 @@ futures-core = "0.3"
 pin-project-lite = "0.2"
 regex = "^1.4"
 log = "0.4"
-
 metrics = "0.24"
 
-# TODO: remove
-prometheus = { version = "0.14", default-features = false }
-
-
-[features]
-process = ["prometheus/process"]

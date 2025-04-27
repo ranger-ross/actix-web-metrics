@@ -322,20 +322,14 @@ use std::task::{Context, Poll};
 use std::time::Instant;
 
 use actix_web::{
-    body::{BodySize, EitherBody, MessageBody},
+    body::{BodySize, MessageBody},
     dev::{self, Service, ServiceRequest, ServiceResponse, Transform},
-    http::{
-        header::{HeaderValue, CONTENT_TYPE},
-        Method, StatusCode, Version,
-    },
+    http::{Method, StatusCode, Version},
     web::Bytes,
     Error, HttpMessage,
 };
 use futures_core::ready;
 use pin_project_lite::pin_project;
-use prometheus::{
-    Encoder, HistogramOpts, HistogramVec, IntCounterVec, Opts, Registry, TextEncoder,
-};
 
 use regex::RegexSet;
 use strfmt::strfmt;
@@ -352,12 +346,9 @@ pub struct MetricsConfig {
 ///
 /// It allows setting optional parameters like registry, buckets, etc.
 #[derive(Debug)]
-pub struct PrometheusMetricsBuilder {
+pub struct MetricsMiddlewareBuilder {
     namespace: Option<String>,
-    endpoint: Option<String>,
     const_labels: HashMap<String, String>,
-    registry: Registry,
-    buckets: Vec<f64>,
     exclude: HashSet<String>,
     exclude_regex: RegexSet,
     exclude_status: HashSet<StatusCode>,
@@ -365,17 +356,14 @@ pub struct PrometheusMetricsBuilder {
     metrics_configuration: ActixMetricsConfiguration,
 }
 
-impl PrometheusMetricsBuilder {
+impl MetricsMiddlewareBuilder {
     /// Create new `PrometheusMetricsBuilder`
     ///
     /// namespace example: "actix"
     pub fn new() -> Self {
         Self {
             namespace: None,
-            endpoint: None,
             const_labels: HashMap::new(),
-            registry: Registry::new(),
-            buckets: prometheus::DEFAULT_BUCKETS.to_vec(),
             exclude: HashSet::new(),
             exclude_regex: RegexSet::empty(),
             exclude_status: HashSet::new(),
@@ -384,31 +372,9 @@ impl PrometheusMetricsBuilder {
         }
     }
 
-    /// Set actix web endpoint
-    ///
-    /// Example: "/metrics"
-    pub fn endpoint(mut self, value: &str) -> Self {
-        self.endpoint = Some(value.into());
-        self
-    }
-
-    /// Set histogram buckets
-    pub fn buckets(mut self, value: &[f64]) -> Self {
-        self.buckets = value.to_vec();
-        self
-    }
-
     /// Set labels to add on every metrics
     pub fn const_labels(mut self, value: HashMap<String, String>) -> Self {
         self.const_labels = value;
-        self
-    }
-
-    /// Set registry
-    ///
-    /// By default one is set and is internal to `PrometheusMetrics`
-    pub fn registry(mut self, value: Registry) -> Self {
-        self.registry = value;
         self
     }
 
@@ -454,39 +420,7 @@ impl PrometheusMetricsBuilder {
     ///
     /// WARNING: This call purposefully leaks the memory of metrics and label names to avoid
     /// allocations during runtime. Avoid calling more than once.
-    pub fn build(self) -> Result<PrometheusMetrics, Box<dyn std::error::Error + Send + Sync>> {
-        let labels_vec = self.metrics_configuration.labels.clone().to_vec();
-        let labels = &labels_vec.iter().map(|s| s.as_str()).collect::<Vec<&str>>();
-
-        let http_requests_total_opts = Opts::new(
-            self.metrics_configuration
-                .http_requests_total_name
-                .to_owned(),
-            "Total number of HTTP requests",
-        )
-        .namespace(&self.namespace.clone().unwrap_or("".to_string()))
-        .const_labels(self.const_labels.clone());
-
-        let http_requests_total = IntCounterVec::new(http_requests_total_opts, labels)?;
-
-        let http_requests_duration_seconds_opts = HistogramOpts::new(
-            self.metrics_configuration
-                .http_requests_duration_seconds_name
-                .to_owned(),
-            "HTTP request duration in seconds for all requests",
-        )
-        .namespace(&self.namespace.clone().unwrap_or("".to_string()))
-        .buckets(self.buckets.to_vec())
-        .const_labels(self.const_labels.clone());
-
-        let http_requests_duration_seconds =
-            HistogramVec::new(http_requests_duration_seconds_opts, labels)?;
-
-        self.registry
-            .register(Box::new(http_requests_total.clone()))?;
-        self.registry
-            .register(Box::new(http_requests_duration_seconds.clone()))?;
-
+    pub fn build(self) -> Result<MetricsMiddleware, Box<dyn std::error::Error + Send + Sync>> {
         let namespace_prefix = if let Some(ns) = self.namespace {
             format!("{ns}_")
         } else {
@@ -515,7 +449,7 @@ impl PrometheusMetricsBuilder {
                 None
             };
 
-        let cl: Vec<(&'static str, String)> = self
+        let const_labels: Vec<(&'static str, String)> = self
             .const_labels
             .iter()
             .map(|(k, v)| {
@@ -524,12 +458,7 @@ impl PrometheusMetricsBuilder {
             })
             .collect();
 
-        Ok(PrometheusMetrics {
-            http_requests_total,
-            http_requests_duration_seconds,
-            registry: self.registry,
-            endpoint: self.endpoint,
-            const_labels: self.const_labels,
+        Ok(MetricsMiddleware {
             exclude: self.exclude,
             exclude_regex: self.exclude_regex,
             exclude_status: self.exclude_status,
@@ -548,7 +477,7 @@ impl PrometheusMetricsBuilder {
                 method: Box::leak(Box::new(self.metrics_configuration.labels.method)),
                 status: Box::leak(Box::new(self.metrics_configuration.labels.status)),
                 version,
-                const_labels: cl,
+                const_labels,
             },
         })
     }
@@ -575,18 +504,6 @@ impl Default for LabelsConfiguration {
 }
 
 impl LabelsConfiguration {
-    fn to_vec(&self) -> Vec<String> {
-        let mut labels = vec![
-            self.endpoint.clone(),
-            self.method.clone(),
-            self.status.clone(),
-        ];
-        if let Some(version) = self.version.clone() {
-            labels.push(version);
-        }
-        labels
-    }
-
     /// set http method label
     pub fn method(mut self, name: &str) -> Self {
         self.method = name.to_owned();
@@ -675,16 +592,8 @@ struct NameConfig {
 ///     `HttpServer`.
 #[derive(Clone)]
 #[must_use = "must be set up as middleware for actix-web"]
-pub struct PrometheusMetrics {
+pub struct MetricsMiddleware {
     pub(crate) names: NameConfig,
-    pub(crate) http_requests_total: IntCounterVec,
-    pub(crate) http_requests_duration_seconds: HistogramVec,
-
-    /// exposed registry for custom prometheus metrics
-    pub registry: Registry,
-    pub(crate) endpoint: Option<String>,
-    #[allow(dead_code)]
-    pub(crate) const_labels: HashMap<String, String>,
 
     pub(crate) exclude: HashSet<String>,
     pub(crate) exclude_regex: RegexSet,
@@ -693,34 +602,7 @@ pub struct PrometheusMetrics {
     pub(crate) unmatched_patterns_mask: Option<String>,
 }
 
-impl PrometheusMetrics {
-    fn metrics(&self) -> String {
-        let mut buffer = vec![];
-        TextEncoder::new()
-            .encode(&self.registry.gather(), &mut buffer)
-            .unwrap();
-
-        #[cfg(feature = "process")]
-        {
-            let mut process_metrics = vec![];
-            TextEncoder::new()
-                .encode(&prometheus::gather(), &mut process_metrics)
-                .unwrap();
-
-            buffer.extend_from_slice(&process_metrics);
-        }
-
-        String::from_utf8(buffer).unwrap()
-    }
-
-    fn matches(&self, path: &str, method: &Method) -> bool {
-        if self.endpoint.is_some() {
-            self.endpoint.as_ref().unwrap() == path && method == Method::GET
-        } else {
-            false
-        }
-    }
-
+impl MetricsMiddleware {
     fn update_metrics(
         &self,
         http_version: Version,
@@ -754,18 +636,6 @@ impl PrometheusMetrics {
             final_pattern
         };
 
-        let label_values = [
-            final_pattern,
-            method.as_str(),
-            status.as_str(),
-            Self::http_version_label(http_version),
-        ];
-        let label_values = if self.enable_http_version_label {
-            &label_values[..]
-        } else {
-            &label_values[..3]
-        };
-
         // TODO: Optimize this vector to avoid resizing with `const_labels`
         let mut labels = vec![
             (self.names.endpoint, final_pattern.to_string()),
@@ -788,14 +658,8 @@ impl PrometheusMetrics {
         let duration =
             (elapsed.as_secs() as f64) + f64::from(elapsed.subsec_nanos()) / 1_000_000_000_f64;
         histogram!(self.names.http_requests_duration_seconds, &labels).record(duration);
-        self.http_requests_duration_seconds
-            .with_label_values(label_values)
-            .observe(duration);
 
         counter!(self.names.http_requests_total, &labels).increment(1);
-        self.http_requests_total
-            .with_label_values(label_values)
-            .inc();
     }
 
     fn http_version_label(version: Version) -> &'static str {
@@ -810,11 +674,11 @@ impl PrometheusMetrics {
     }
 }
 
-impl<S, B> Transform<S, ServiceRequest> for PrometheusMetrics
+impl<S, B> Transform<S, ServiceRequest> for MetricsMiddleware
 where
     S: Service<ServiceRequest, Response = ServiceResponse<B>, Error = Error>,
 {
-    type Response = ServiceResponse<EitherBody<StreamLog<B>, StreamLog<String>>>;
+    type Response = ServiceResponse<StreamLog<B>>;
     type Error = Error;
     type InitError = ();
     type Transform = PrometheusMetricsMiddleware<S>;
@@ -837,7 +701,7 @@ pin_project! {
         #[pin]
         fut: S::Future,
         time: Instant,
-        inner: Arc<PrometheusMetrics>,
+        inner: Arc<MetricsMiddleware>,
         _t: PhantomData<()>,
     }
 }
@@ -846,7 +710,7 @@ impl<S, B> Future for LoggerResponse<S>
 where
     S: Service<ServiceRequest, Response = ServiceResponse<B>, Error = Error>,
 {
-    type Output = Result<ServiceResponse<EitherBody<StreamLog<B>, StreamLog<String>>>, Error>;
+    type Output = Result<ServiceResponse<StreamLog<B>>, Error>;
 
     fn poll(self: Pin<&mut Self>, cx: &mut Context<'_>) -> Poll<Self::Output> {
         let this = self.project();
@@ -897,45 +761,17 @@ where
         };
 
         let inner = this.inner.clone();
-
-        Poll::Ready(Ok(res.map_body(move |head, body| {
-            // We short circuit the response status and body to serve the endpoint
-            // automagically. This way the user does not need to set the middleware *AND*
-            // an endpoint to serve middleware results. The user is only required to set
-            // the middleware and tell us what the endpoint should be.
-            if inner.matches(&path, &method) {
-                head.status = StatusCode::OK;
-                head.headers.insert(
-                    CONTENT_TYPE,
-                    HeaderValue::from_static("text/plain; version=0.0.4; charset=utf-8"),
-                );
-
-                EitherBody::right(StreamLog {
-                    body: inner.metrics(),
-                    size: 0,
-                    clock: time,
-                    inner,
-                    status: head.status,
-                    mixed_pattern,
-                    fallback_pattern,
-                    method,
-                    version,
-                    was_path_matched: true,
-                })
-            } else {
-                EitherBody::left(StreamLog {
-                    body,
-                    size: 0,
-                    clock: time,
-                    inner,
-                    status: head.status,
-                    mixed_pattern,
-                    fallback_pattern,
-                    method,
-                    version,
-                    was_path_matched,
-                })
-            }
+        Poll::Ready(Ok(res.map_body(move |head, body| StreamLog {
+            body,
+            size: 0,
+            clock: time,
+            inner,
+            status: head.status,
+            mixed_pattern,
+            fallback_pattern,
+            method,
+            version,
+            was_path_matched,
         })))
     }
 }
@@ -944,14 +780,14 @@ where
 #[doc(hidden)]
 pub struct PrometheusMetricsMiddleware<S> {
     service: S,
-    inner: Arc<PrometheusMetrics>,
+    inner: Arc<MetricsMiddleware>,
 }
 
 impl<S, B> Service<ServiceRequest> for PrometheusMetricsMiddleware<S>
 where
     S: Service<ServiceRequest, Response = ServiceResponse<B>, Error = Error>,
 {
-    type Response = ServiceResponse<EitherBody<StreamLog<B>, StreamLog<String>>>;
+    type Response = ServiceResponse<StreamLog<B>>;
     type Error = S::Error;
     type Future = LoggerResponse<S>;
 
@@ -974,7 +810,7 @@ pin_project! {
         body: B,
         size: usize,
         clock: Instant,
-        inner: Arc<PrometheusMetrics>,
+        inner: Arc<MetricsMiddleware>,
         status: StatusCode,
         // a route pattern with some params not-filled and some params filled in by user-defined
         mixed_pattern: String,
@@ -1028,7 +864,7 @@ mod tests {
 
     #[actix_web::test]
     async fn middleware_basic() {
-        let prometheus = PrometheusMetricsBuilder::new("actix_web_prom")
+        let prometheus = MetricsMiddlewareBuilder::new("actix_web_prom")
             .endpoint("/metrics")
             .build()
             .unwrap();
@@ -1073,7 +909,7 @@ actix_web_prom_http_requests_total{endpoint=\"/health_check\",method=\"GET\",sta
 
     #[actix_web::test]
     async fn middleware_http_version() {
-        let prometheus = PrometheusMetricsBuilder::new("actix_web_prom")
+        let prometheus = MetricsMiddlewareBuilder::new("actix_web_prom")
             .endpoint("/metrics")
             .metrics_configuration(
                 ActixMetricsConfiguration::default()
@@ -1123,21 +959,21 @@ actix_web_prom_http_requests_total{endpoint=\"/health_check\",method=\"GET\",sta
                 &String::from_utf8(web::Bytes::from(
                     format!(
                         "actix_web_prom_http_requests_duration_seconds_bucket{{endpoint=\"/health_check\",method=\"GET\",status=\"200\",version=\"{}\",le=\"0.005\"}} {}
-", PrometheusMetrics::http_version_label(http_version), repeats)
+", MetricsMiddleware::http_version_label(http_version), repeats)
             ).to_vec()).unwrap()));
 
             assert!(&body.contains(
                 &String::from_utf8(web::Bytes::from(
                     format!(
                         "actix_web_prom_http_requests_total{{endpoint=\"/health_check\",method=\"GET\",status=\"200\",version=\"{}\"}} {}
-", PrometheusMetrics::http_version_label(http_version), repeats)
+", MetricsMiddleware::http_version_label(http_version), repeats)
             ).to_vec()).unwrap()));
         }
     }
 
     #[actix_web::test]
     async fn middleware_scope() {
-        let prometheus = PrometheusMetricsBuilder::new("actix_web_prom")
+        let prometheus = MetricsMiddlewareBuilder::new("actix_web_prom")
             .endpoint("/internal/metrics")
             .build()
             .unwrap();
@@ -1192,7 +1028,7 @@ actix_web_prom_http_requests_total{endpoint=\"/internal/health_check\",method=\"
 
     #[actix_web::test]
     async fn middleware_match_pattern() {
-        let prometheus = PrometheusMetricsBuilder::new("actix_web_prom")
+        let prometheus = MetricsMiddlewareBuilder::new("actix_web_prom")
             .endpoint("/metrics")
             .build()
             .unwrap();
@@ -1233,7 +1069,7 @@ actix_web_prom_http_requests_total{endpoint=\"/resource/{id}\",method=\"GET\",st
 
     #[actix_web::test]
     async fn middleware_with_mask_unmatched_pattern() {
-        let prometheus = PrometheusMetricsBuilder::new("actix_web_prom")
+        let prometheus = MetricsMiddlewareBuilder::new("actix_web_prom")
             .endpoint("/metrics")
             .mask_unmatched_patterns("UNKNOWN")
             .build()
@@ -1271,7 +1107,7 @@ actix_web_prom_http_requests_total{endpoint=\"/resource/{id}\",method=\"GET\",st
     #[actix_web::test]
     async fn middleware_with_mixed_params_cardinality() {
         // we want to keep metrics label on the "cheap param" but not on the "expensive" param
-        let prometheus = PrometheusMetricsBuilder::new("actix_web_prom")
+        let prometheus = MetricsMiddlewareBuilder::new("actix_web_prom")
             .endpoint("/metrics")
             .build()
             .unwrap();
@@ -1347,7 +1183,7 @@ actix_web_prom_http_requests_total{endpoint=\"/resource/{id}\",method=\"GET\",st
 
     #[actix_web::test]
     async fn middleware_metrics_exposed_with_conflicting_pattern() {
-        let prometheus = PrometheusMetricsBuilder::new("actix_web_prom")
+        let prometheus = MetricsMiddlewareBuilder::new("actix_web_prom")
             .endpoint("/metrics")
             .build()
             .unwrap();
@@ -1373,7 +1209,7 @@ actix_web_prom_http_requests_total{endpoint=\"/resource/{id}\",method=\"GET\",st
 
     #[actix_web::test]
     async fn middleware_basic_failure() {
-        let prometheus = PrometheusMetricsBuilder::new("actix_web_prom")
+        let prometheus = MetricsMiddlewareBuilder::new("actix_web_prom")
             .endpoint("/prometheus")
             .build()
             .unwrap();
@@ -1406,7 +1242,7 @@ actix_web_prom_http_requests_total{endpoint=\"/health_checkz\",method=\"GET\",st
         let counter_opts = Opts::new("counter", "some random counter").namespace("actix_web_prom");
         let counter = IntCounterVec::new(counter_opts, &["endpoint", "method", "status"]).unwrap();
 
-        let prometheus = PrometheusMetricsBuilder::new("actix_web_prom")
+        let prometheus = MetricsMiddlewareBuilder::new("actix_web_prom")
             .endpoint("/metrics")
             .build()
             .unwrap();
@@ -1465,7 +1301,7 @@ actix_web_prom_counter{endpoint=\"endpoint\",method=\"method\",status=\"status\"
     #[actix_web::test]
     async fn middleware_none_endpoint() {
         // Init PrometheusMetrics with none URL
-        let prometheus = PrometheusMetricsBuilder::new("actix_web_prom")
+        let prometheus = MetricsMiddlewareBuilder::new("actix_web_prom")
             .build()
             .unwrap();
 
@@ -1507,7 +1343,7 @@ actix_web_prom_counter{endpoint=\"endpoint\",method=\"method\",status=\"status\"
         counter.inc_by(10_f64);
 
         // Init PrometheusMetrics
-        let prometheus = PrometheusMetricsBuilder::new("actix_web_prom")
+        let prometheus = MetricsMiddlewareBuilder::new("actix_web_prom")
             .registry(registry)
             .endpoint("/metrics")
             .build()
@@ -1547,7 +1383,7 @@ actix_web_prom_counter{endpoint=\"endpoint\",method=\"method\",status=\"status\"
         let mut labels = HashMap::new();
         labels.insert("label1".to_string(), "value1".to_string());
         labels.insert("label2".to_string(), "value2".to_string());
-        let prometheus = PrometheusMetricsBuilder::new("actix_web_prom")
+        let prometheus = MetricsMiddlewareBuilder::new("actix_web_prom")
             .endpoint("/metrics")
             .const_labels(labels)
             .build()
@@ -1593,7 +1429,7 @@ actix_web_prom_http_requests_total{endpoint=\"/health_check\",label1=\"value1\",
             .http_requests_duration_seconds_name("my_http_request_duration")
             .http_requests_total_name("my_http_requests_total");
 
-        let prometheus = PrometheusMetricsBuilder::new("actix_web_prom")
+        let prometheus = MetricsMiddlewareBuilder::new("actix_web_prom")
             .endpoint("/metrics")
             .metrics_configuration(metrics_config)
             .build()
@@ -1636,27 +1472,27 @@ actix_web_prom_my_http_requests_total{endpoint=\"/health_check\",method=\"GET\",
     #[test]
     fn compat_with_non_boxed_middleware() {
         let _app = App::new()
-            .wrap(PrometheusMetricsBuilder::new("").build().unwrap())
+            .wrap(MetricsMiddlewareBuilder::new("").build().unwrap())
             .wrap(actix_web::middleware::Logger::default())
             .route("", web::to(|| async { "" }));
 
         let _app = App::new()
             .wrap(actix_web::middleware::Logger::default())
-            .wrap(PrometheusMetricsBuilder::new("").build().unwrap())
+            .wrap(MetricsMiddlewareBuilder::new("").build().unwrap())
             .route("", web::to(|| async { "" }));
 
         let _scope = Scope::new("")
-            .wrap(PrometheusMetricsBuilder::new("").build().unwrap())
+            .wrap(MetricsMiddlewareBuilder::new("").build().unwrap())
             .route("", web::to(|| async { "" }));
 
         let _resource = Resource::new("")
-            .wrap(PrometheusMetricsBuilder::new("").build().unwrap())
+            .wrap(MetricsMiddlewareBuilder::new("").build().unwrap())
             .route(web::to(|| async { "" }));
     }
 
     #[actix_web::test]
     async fn middleware_excludes() {
-        let prometheus = PrometheusMetricsBuilder::new("actix_web_prom")
+        let prometheus = MetricsMiddlewareBuilder::new("actix_web_prom")
             .endpoint("/metrics")
             .exclude("/ping")
             .exclude_regex("/readyz/.*")
