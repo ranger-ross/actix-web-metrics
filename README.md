@@ -136,7 +136,7 @@ For that you need to add a middleware to pass some [extensions data](https://blo
 
 ```rust
 use actix_web::{dev::Service, web, HttpMessage, HttpResponse};
-use actix_web_metrics::MetricsConfig;
+use actix_web_metrics::ActixWebMetricsExtension;
 
 async fn handler() -> HttpResponse {
     HttpResponse::Ok().finish()
@@ -144,8 +144,8 @@ async fn handler() -> HttpResponse {
 
 web::resource("/posts/{language}/{slug}")
     .wrap_fn(|req, srv| {
-        req.extensions_mut().insert::<MetricsConfig>(
-            MetricsConfig { cardinality_keep_params: vec!["language".to_string()] }
+        req.extensions_mut().insert::<ActixWebMetricsExtension>(
+            ActixWebMetricsExtension { cardinality_keep_params: vec!["language".to_string()] }
         );
         srv.call(req)
     })
@@ -156,14 +156,14 @@ See the full example `with_cardinality_on_params.rs`.
 
 ## Configurable metric names
 
-If you want to rename the default metrics, you can use [`ActixMetricsConfiguration`] to do so.
+If you want to rename the default metrics, you can use `ActixWebMetricsConfig` to do so.
 
 ```rust
-use actix_web_metrics::{ActixWebMetricsBuilder, ActixMetricsConfiguration};
+use actix_web_metrics::{ActixWebMetricsBuilder, ActixWebMetricsConfig};
 
 ActixWebMetricsBuilder::new()
-    .metrics_configuration(
-        ActixMetricsConfiguration::default()
+    .metrics_config(
+        ActixWebMetricsConfig::default()
         .http_requests_duration_seconds_name("my_http_request_duration")
         .http_requests_duration_seconds_name("my_http_requests_duration_seconds"),
     )

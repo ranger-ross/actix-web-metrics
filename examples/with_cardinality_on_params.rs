@@ -4,7 +4,7 @@ use actix_web::dev::Service;
 use actix_web::HttpMessage;
 
 use actix_web::{web, App, HttpResponse, HttpServer, Responder};
-use actix_web_metrics::{ActixWebMetricsBuilder, MetricsConfig};
+use actix_web_metrics::{ActixWebMetricsBuilder, ActixWebMetricsExtension};
 use metrics_exporter_prometheus::PrometheusBuilder;
 
 async fn health() -> HttpResponse {
@@ -36,9 +36,11 @@ async fn main() -> std::io::Result<()> {
                     .wrap_fn(|req, srv| {
                         // example of a route where we want to keep the details of `service_id` param in the metrics
                         // we use a middleware to specify that `service_id` param values are kept in the labels
-                        req.extensions_mut().insert::<MetricsConfig>(MetricsConfig {
-                            cardinality_keep_params: vec!["cheap".to_string()],
-                        });
+                        req.extensions_mut().insert::<ActixWebMetricsExtension>(
+                            ActixWebMetricsExtension {
+                                cardinality_keep_params: vec!["cheap".to_string()],
+                            },
+                        );
                         srv.call(req)
                     })
                     .route(web::get().to(|path: web::Path<(String, String)>| async {

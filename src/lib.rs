@@ -132,11 +132,11 @@ By default, actix-web-metrics will provide metrics for the whole route with the 
 This is great but you cannot differentiate metrics across languages (as there is only a limited set of them).
 Actix-web-metrics can be configured to allow for more cardinality on some route params.
 
-For that you need to add a middleware to pass some [extensions data](https://blog.adamchalmers.com/what-are-extensions/), specifically the [`MetricsConfig`] struct that contains the list of params you want to keep cardinality on.
+For that you need to add a middleware to pass some [extensions data](https://blog.adamchalmers.com/what-are-extensions/), specifically the [`ActixWebMetricsExtension`] struct that contains the list of params you want to keep cardinality on.
 
 ```rust
 use actix_web::{dev::Service, web, HttpMessage, HttpResponse};
-use actix_web_metrics::MetricsConfig;
+use actix_web_metrics::ActixWebMetricsExtension;
 
 async fn handler() -> HttpResponse {
     HttpResponse::Ok().finish()
@@ -144,8 +144,8 @@ async fn handler() -> HttpResponse {
 
 web::resource("/posts/{language}/{slug}")
     .wrap_fn(|req, srv| {
-        req.extensions_mut().insert::<MetricsConfig>(
-            MetricsConfig { cardinality_keep_params: vec!["language".to_string()] }
+        req.extensions_mut().insert::<ActixWebMetricsExtension>(
+            ActixWebMetricsExtension { cardinality_keep_params: vec!["language".to_string()] }
         );
         srv.call(req)
     })
@@ -156,16 +156,16 @@ See the full example `with_cardinality_on_params.rs`.
 
 ## Configurable metric names
 
-If you want to rename the default metrics, you can use [`ActixMetricsConfiguration`] to do so.
+If you want to rename the default metrics, you can use [`ActixWebMetricsConfig`] to do so.
 
 ```rust
-use actix_web_metrics::{ActixWebMetricsBuilder, ActixMetricsConfiguration};
+use actix_web_metrics::{ActixWebMetricsBuilder, ActixWebMetricsConfig};
 
 ActixWebMetricsBuilder::new()
-    .metrics_configuration(
-        ActixMetricsConfiguration::default()
-        .http_requests_duration_seconds_name("my_http_request_duration")
-        .http_requests_duration_seconds_name("my_http_requests_duration_seconds"),
+    .metrics_config(
+        ActixWebMetricsConfig::default()
+           .http_requests_duration_seconds_name("my_http_request_duration")
+           .http_requests_duration_seconds_name("my_http_requests_duration_seconds"),
     )
     .build()
     .unwrap();
@@ -229,10 +229,10 @@ use pin_project_lite::pin_project;
 use regex::RegexSet;
 use strfmt::strfmt;
 
-/// MetricsConfig define middleware and config struct to change the behaviour of the metrics
+/// ActixWebMetricsExtension define middleware and config struct to change the behaviour of the metrics
 /// struct to define some particularities
 #[derive(Debug, Clone)]
-pub struct MetricsConfig {
+pub struct ActixWebMetricsExtension {
     /// list of params where the cardinality matters
     pub cardinality_keep_params: Vec<String>,
 }
@@ -246,7 +246,7 @@ pub struct ActixWebMetricsBuilder {
     exclude_regex: RegexSet,
     exclude_status: HashSet<StatusCode>,
     unmatched_patterns_mask: Option<String>,
-    metrics_configuration: ActixMetricsConfiguration,
+    metrics_config: ActixWebMetricsConfig,
 }
 
 impl ActixWebMetricsBuilder {
@@ -259,7 +259,7 @@ impl ActixWebMetricsBuilder {
             exclude_regex: RegexSet::empty(),
             exclude_status: HashSet::new(),
             unmatched_patterns_mask: Some("UNKNOWN".to_string()),
-            metrics_configuration: ActixMetricsConfiguration::default(),
+            metrics_config: ActixWebMetricsConfig::default(),
         }
     }
 
@@ -312,8 +312,8 @@ impl ActixWebMetricsBuilder {
     }
 
     /// Set metrics configuration
-    pub fn metrics_configuration(mut self, value: ActixMetricsConfiguration) -> Self {
-        self.metrics_configuration = value;
+    pub fn metrics_config(mut self, value: ActixWebMetricsConfig) -> Self {
+        self.metrics_config = value;
         self
     }
 
@@ -330,8 +330,7 @@ impl ActixWebMetricsBuilder {
 
         let http_requests_duration_seconds_name = format!(
             "{namespace_prefix}{}",
-            self.metrics_configuration
-                .http_requests_duration_seconds_name
+            self.metrics_config.http_requests_duration_seconds_name
         );
         describe_histogram!(
             http_requests_duration_seconds_name.clone(),
@@ -339,19 +338,19 @@ impl ActixWebMetricsBuilder {
         );
         let http_requests_total_name = format!(
             "{namespace_prefix}{}",
-            self.metrics_configuration.http_requests_total_name
+            self.metrics_config.http_requests_total_name
         );
         describe_counter!(
             http_requests_total_name.clone(),
             "Total number of HTTP requests"
         );
 
-        let version: Option<&'static str> =
-            if let Some(ref v) = self.metrics_configuration.labels.version {
-                Some(Box::leak(Box::new(v.clone())))
-            } else {
-                None
-            };
+        let version: Option<&'static str> = if let Some(ref v) = self.metrics_config.labels.version
+        {
+            Some(Box::leak(Box::new(v.clone())))
+        } else {
+            None
+        };
 
         let mut const_labels: Vec<(&'static str, String)> = self
             .const_labels
@@ -367,16 +366,16 @@ impl ActixWebMetricsBuilder {
             exclude: self.exclude,
             exclude_regex: self.exclude_regex,
             exclude_status: self.exclude_status,
-            enable_http_version_label: self.metrics_configuration.labels.version.is_some(),
+            enable_http_version_label: self.metrics_config.labels.version.is_some(),
             unmatched_patterns_mask: self.unmatched_patterns_mask,
             names: MetricsMetadata {
                 http_requests_total: Box::leak(Box::new(http_requests_total_name)),
                 http_requests_duration_seconds: Box::leak(Box::new(
                     http_requests_duration_seconds_name,
                 )),
-                endpoint: Box::leak(Box::new(self.metrics_configuration.labels.endpoint)),
-                method: Box::leak(Box::new(self.metrics_configuration.labels.method)),
-                status: Box::leak(Box::new(self.metrics_configuration.labels.status)),
+                endpoint: Box::leak(Box::new(self.metrics_config.labels.endpoint)),
+                method: Box::leak(Box::new(self.metrics_config.labels.method)),
+                status: Box::leak(Box::new(self.metrics_config.labels.status)),
                 version,
                 const_labels,
             },
@@ -384,16 +383,22 @@ impl ActixWebMetricsBuilder {
     }
 }
 
-///Configurations for the labels used in metrics
+impl Default for ActixWebMetricsBuilder {
+    fn default() -> Self {
+        Self::new()
+    }
+}
+
+/// Configuration for the labels used in metrics
 #[derive(Debug, Clone)]
-pub struct LabelsConfiguration {
+pub struct LabelsConfig {
     endpoint: String,
     method: String,
     status: String,
     version: Option<String>,
 }
 
-impl Default for LabelsConfiguration {
+impl Default for LabelsConfig {
     fn default() -> Self {
         Self {
             endpoint: String::from("endpoint"),
@@ -404,7 +409,7 @@ impl Default for LabelsConfiguration {
     }
 }
 
-impl LabelsConfiguration {
+impl LabelsConfig {
     /// set http method label
     pub fn method<T: Into<String>>(mut self, name: T) -> Self {
         self.method = name.into();
@@ -434,25 +439,25 @@ impl LabelsConfiguration {
 ///
 /// Stores individual metric configuration objects
 #[derive(Debug, Clone)]
-pub struct ActixMetricsConfiguration {
+pub struct ActixWebMetricsConfig {
     http_requests_total_name: String,
     http_requests_duration_seconds_name: String,
-    labels: LabelsConfiguration,
+    labels: LabelsConfig,
 }
 
-impl Default for ActixMetricsConfiguration {
+impl Default for ActixWebMetricsConfig {
     fn default() -> Self {
         Self {
             http_requests_total_name: String::from("http_requests_total"),
             http_requests_duration_seconds_name: String::from("http_requests_duration_seconds"),
-            labels: LabelsConfiguration::default(),
+            labels: LabelsConfig::default(),
         }
     }
 }
 
-impl ActixMetricsConfiguration {
+impl ActixWebMetricsConfig {
     /// Set the labels collected for the metrics
-    pub fn labels(mut self, labels: LabelsConfiguration) -> Self {
+    pub fn labels(mut self, labels: LabelsConfig) -> Self {
         self.labels = labels;
         self
     }
@@ -485,11 +490,11 @@ struct MetricsMetadata {
 
 /// By default two metrics are tracked:
 ///
-///   - `http_requests_total` (labels: endpoint, method, status): the total
-///     number of HTTP requests handled by the actix `HttpServer`.
+/// - `http_requests_total` (labels: endpoint, method, status): the total
+///   number of HTTP requests handled by the actix `HttpServer`.
 ///
-///   - `http_requests_duration_seconds` (labels: endpoint, method, status):
-///      the request duration for all HTTP requests handled by the actix `HttpServer`.
+/// - `http_requests_duration_seconds` (labels: endpoint, method, status):
+///   the request duration for all HTTP requests handled by the actix `HttpServer`.
 #[derive(Clone)]
 #[must_use = "must be set up as middleware for actix-web"]
 pub struct ActixWebMetrics {
@@ -503,6 +508,7 @@ pub struct ActixWebMetrics {
 }
 
 impl ActixWebMetrics {
+    #[allow(clippy::too_many_arguments)]
     fn update_metrics(
         &self,
         http_version: Version,
@@ -626,10 +632,11 @@ where
 
         // get metrics config for this specific route
         // piece of code to allow for more cardinality
-        let params_keep_path_cardinality = match req.extensions_mut().get::<MetricsConfig>() {
-            Some(config) => config.cardinality_keep_params.clone(),
-            None => vec![],
-        };
+        let params_keep_path_cardinality =
+            match req.extensions_mut().get::<ActixWebMetricsExtension>() {
+                Some(config) => config.cardinality_keep_params.clone(),
+                None => vec![],
+            };
 
         let full_pattern = req.match_pattern();
         let path = req.path().to_string();
