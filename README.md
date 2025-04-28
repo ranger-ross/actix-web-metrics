@@ -90,6 +90,8 @@ NOTE: There are 2 important things to note:
 * The `metrics-exporter-prometheus` crate can be swapped for another metrics.rs compatible exporter.
 * The endpoint exposed by `metrics-exporter-prometheus` is not part of the actix web http server.
 
+If you want to expose a prometheus endpoint directly in actix-web see the `prometheus_endpoint.rs` example.
+
 # Features
 
 ## Custom metrics
