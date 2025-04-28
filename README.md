@@ -3,7 +3,7 @@
 [![CI Status](https://github.com/ranger-ross/actix-web-metrics/workflows/Test/badge.svg)](https://github.com/ranger-ross/actix-web-metrics/actions)
 [![docs.rs](https://docs.rs/actix-web-metrics/badge.svg)](https://docs.rs/actix-web-metrics)
 [![crates.io](https://img.shields.io/crates/v/actix-web-metrics.svg)](https://crates.io/crates/actix-web-metrics)
-[![MIT licensed](https://img.shields.io/badge/license-MIT-blue.svg)](https://github.com/range-ross/actix-web-metrics/blob/master/LICENSE)
+[![MIT licensed](https://img.shields.io/badge/license-MIT-blue.svg)](https://github.com/ranger-ross/actix-web-metrics/blob/master/LICENSE)
 
 [Metrics.rs](https://metrics.rs) integration for [actix-web](https://github.com/actix/actix-web).
 
@@ -95,7 +95,7 @@ NOTE: There are 2 important things to note:
 ## Custom metrics
 
 The [metrics.rs](https://docs.rs/metrics/latest/metrics) crate provides macros for custom metrics.
-This crate does interfere with that functionality.
+This crate does not interfere with that functionality.
 
 ```rust
 use actix_web::{web, App, HttpResponse, HttpServer};
@@ -176,7 +176,7 @@ See full example `configuring_default_metrics.rs`.
 ## Masking unmatched requests
 
 By default, if a request path is not matched to an Actix Web route, it will be masked as `UNKNOWN`.
-This is useful to avoid producting lots of useless metrics due to bots or malious actors.
+This is useful to avoid producing lots of useless metrics due to bots or malicious actors.
 
 This can be configured in the following ways:
 * `mask_unmatched_patterns()` can be used to change the endpoint label to something other than `UNKNOWN`.
@@ -207,13 +207,13 @@ http_requests_duration_seconds_sum{endpoint="UNMATCHED",method="GET",status="400
 # Motivations
 
 `actix-web-metrics` is heavily inspired (and forked from) [`actix-web-prom`](https://github.com/nlopes/actix-web-prom). 
-Special thanks to @nlopes for thier excellent work on `actix-web-prom`.
+Special thanks to @nlopes for their excellent work on `actix-web-prom`.
 
-This crate replaces the unliying metrics implmentation from the [`prometheus`](https://docs.rs/prometheus/latest/prometheus) crate to [`metrics.rs`](https://metrics.rs).
+This crate replaces the unlying metrics implementation from the [`prometheus`](https://docs.rs/prometheus/latest/prometheus) crate with [`metrics.rs`](https://metrics.rs).
 
 The reasons for doing this are as followed:
 
-* The metrics.rs ecosystem provide more ergonomic ways to instrument applications than the raw prometheus client.
-* metrics.rs provide more customizible ways to export metrics.
+* The metrics.rs ecosystem provides more ergonomic ways to instrument applications than the raw prometheus client.
+* `metrics.rs` provides more customizable ways to export metrics.
 * The future of the `prometheus` crate is uncertain (see https://github.com/tikv/rust-prometheus/issues/530)
 

@@ -176,7 +176,7 @@ See full example `configuring_default_metrics.rs`.
 ## Masking unmatched requests
 
 By default, if a request path is not matched to an Actix Web route, it will be masked as `UNKNOWN`.
-This is useful to avoid producting lots of useless metrics due to bots or malious actors.
+This is useful to avoid producing lots of useless metrics due to bots or malious actors.
 
 This can be configured in the following ways:
 * `mask_unmatched_patterns()` can be used to change the endpoint label to something other than `UNKNOWN`.
