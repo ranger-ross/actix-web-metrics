@@ -270,7 +270,7 @@ impl ActixWebMetricsBuilder {
     }
 
     /// Set namespace
-    pub fn namespace(mut self, value: &str) -> Self {
+    pub fn namespace<T: Into<String>>(mut self, value: T) -> Self {
         self.namespace = Some(value.into());
         self
     }
@@ -406,26 +406,26 @@ impl Default for LabelsConfiguration {
 
 impl LabelsConfiguration {
     /// set http method label
-    pub fn method(mut self, name: &str) -> Self {
-        self.method = name.to_owned();
+    pub fn method<T: Into<String>>(mut self, name: T) -> Self {
+        self.method = name.into();
         self
     }
 
     /// set http endpoint label
-    pub fn endpoint(mut self, name: &str) -> Self {
-        self.endpoint = name.to_owned();
+    pub fn endpoint<T: Into<String>>(mut self, name: T) -> Self {
+        self.endpoint = name.into();
         self
     }
 
     /// set http status label
-    pub fn status(mut self, name: &str) -> Self {
-        self.status = name.to_owned();
+    pub fn status<T: Into<String>>(mut self, name: T) -> Self {
+        self.status = name.into();
         self
     }
 
     /// set http version label
-    pub fn version(mut self, name: &str) -> Self {
-        self.version = Some(name.to_owned());
+    pub fn version<T: Into<String>>(mut self, name: T) -> Self {
+        self.version = Some(name.into());
         self
     }
 }
@@ -458,14 +458,14 @@ impl ActixMetricsConfiguration {
     }
 
     /// Set name for `http_requests_total` metric
-    pub fn http_requests_total_name(mut self, name: &str) -> Self {
-        self.http_requests_total_name = name.to_owned();
+    pub fn http_requests_total_name<T: Into<String>>(mut self, name: T) -> Self {
+        self.http_requests_total_name = name.into();
         self
     }
 
     /// Set name for `http_requests_duration_seconds` metric
-    pub fn http_requests_duration_seconds_name(mut self, name: &str) -> Self {
-        self.http_requests_duration_seconds_name = name.to_owned();
+    pub fn http_requests_duration_seconds_name<T: Into<String>>(mut self, name: T) -> Self {
+        self.http_requests_duration_seconds_name = name.into();
         self
     }
 }
