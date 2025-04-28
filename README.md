@@ -209,7 +209,7 @@ http_requests_duration_seconds_sum{endpoint="UNMATCHED",method="GET",status="400
 `actix-web-metrics` is heavily inspired (and forked from) [`actix-web-prom`](https://github.com/nlopes/actix-web-prom). 
 Special thanks to @nlopes for their excellent work on `actix-web-prom`.
 
-This crate replaces the unlying metrics implementation from the [`prometheus`](https://docs.rs/prometheus/latest/prometheus) crate with [`metrics.rs`](https://metrics.rs).
+This crate replaces the underlying metrics implementation from the [`prometheus`](https://docs.rs/prometheus/latest/prometheus) crate with [`metrics.rs`](https://metrics.rs).
 
 The reasons for doing this are as followed:
 
