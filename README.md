@@ -1,37 +1,38 @@
-# actix-web-prom
+# actix-web-metrics
 
-[![CI Status](https://github.com/nlopes/actix-web-prom/workflows/Test/badge.svg)](https://github.com/nlopes/actix-web-prom/actions)
-[![docs.rs](https://docs.rs/actix-web-prom/badge.svg)](https://docs.rs/actix-web-prom)
-[![crates.io](https://img.shields.io/crates/v/actix-web-prom.svg)](https://crates.io/crates/actix-web-prom)
-[![MIT licensed](https://img.shields.io/badge/license-MIT-blue.svg)](https://github.com/nlopes/actix-web-prom/blob/master/LICENSE)
+[![CI Status](https://github.com/ranger-ross/actix-web-metrics/workflows/Test/badge.svg)](https://github.com/ranger-ross/actix-web-metrics/actions)
+[![docs.rs](https://docs.rs/actix-web-metrics/badge.svg)](https://docs.rs/actix-web-metrics)
+[![crates.io](https://img.shields.io/crates/v/actix-web-metrics.svg)](https://crates.io/crates/actix-web-metrics)
+[![MIT licensed](https://img.shields.io/badge/license-MIT-blue.svg)](https://github.com/ranger-ross/actix-web-metrics/blob/master/LICENSE)
 
-Prometheus instrumentation for [actix-web](https://github.com/actix/actix-web). This middleware is heavily influenced by the work in [sd2k/rocket_prometheus](https://github.com/sd2k/rocket_prometheus). We track the same default metrics and allow for adding user defined metrics.
+[Metrics.rs](https://metrics.rs) integration for [actix-web](https://github.com/actix/actix-web).
 
-By default two metrics are tracked (this assumes the namespace `actix_web_prom`):
+By default two metrics are tracked:
 
-  - `actix_web_prom_http_requests_total` (labels: endpoint, method, status): the total number
+  - `http_requests_total` (labels: endpoint, method, status): the total number
     of HTTP requests handled by the actix HttpServer.
 
-  - `actix_web_prom_http_requests_duration_seconds` (labels: endpoint, method, status): the
+  - `http_requests_duration_seconds` (labels: endpoint, method, status): the
     request duration for all HTTP requests handled by the actix HttpServer.
 
 
-## Usage
+# Usage
 
-First add `actix-web-prom` to your `Cargo.toml`:
+First add `actix-web-metrics` to your `Cargo.toml`:
 
 ```toml
 [dependencies]
-actix-web-prom = "0.9.0"
+actix-web-metrics = "x.x.x"
 ```
 
-You then instantiate the prometheus middleware and pass it to `.wrap()`:
+You then instantiate the metrics middleware and pass it to `.wrap()`:
 
 ```rust
 use std::collections::HashMap;
 
 use actix_web::{web, App, HttpResponse, HttpServer};
-use actix_web_prom::{PrometheusMetrics, PrometheusMetricsBuilder};
+use actix_web_metrics::{ActixWebMetrics, ActixWebMetricsBuilder};
+use metrics_exporter_prometheus::PrometheusBuilder;
 
 async fn health() -> HttpResponse {
     HttpResponse::Ok().finish()
@@ -39,119 +40,82 @@ async fn health() -> HttpResponse {
 
 #[actix_web::main]
 async fn main() -> std::io::Result<()> {
-    let mut labels = HashMap::new();
-    labels.insert("label1".to_string(), "value1".to_string());
-    let prometheus = PrometheusMetricsBuilder::new("api")
-        .endpoint("/metrics")
-        .const_labels(labels)
+    // Register a metrics exporter.
+    // In this case we will just expose a Prometheus metrics endpoint on localhost:9000/metrics
+    //
+    // You can change this to another exporter based on your needs.
+    // See https://github.com/metrics-rs/metrics for more info.
+    PrometheusBuilder::new().install().unwrap();
+    // Configure & build the Actix-Web middleware layer
+    let metrics = ActixWebMetricsBuilder::new()
         .build()
         .unwrap();
 
-        HttpServer::new(move || {
-            App::new()
-                .wrap(prometheus.clone())
-                .service(web::resource("/health").to(health))
-        })
-        .bind("127.0.0.1:8080")?
-        .run()
-        .await?;
+    HttpServer::new(move || {
+        App::new()
+            .wrap(metrics.clone())
+            .service(web::resource("/health").to(health))
+    })
+    .bind("127.0.0.1:8080")?
+    .run()
+    .await?;
     Ok(())
 }
 ```
 
-Using the above as an example, a few things are worth mentioning:
- - `api` is the metrics namespace
- - `/metrics` will be auto exposed (GET requests only) with Content-Type header `content-type: text/plain; version=0.0.4; charset=utf-8`
- - `Some(labels)` is used to add fixed labels to the metrics; `None` can be passed instead
-   if no additional labels are necessary.
+In the example above we are using the `PrometheusBuilder` from the [metrics-exporter-prometheus](https://docs.rs/metrics-exporter-prometheus/latest/metrics_exporter_prometheus) crate which exposes the metrics via an HTTP endpoint.
 
-
-A call to the /metrics endpoint will expose your metrics:
+A call to the `localhost:9000/metrics` endpoint will expose your metrics:
 
 ```shell
-$ curl http://localhost:8080/metrics
-# HELP api_http_requests_duration_seconds HTTP request duration in seconds for all requests
-# TYPE api_http_requests_duration_seconds histogram
-api_http_requests_duration_seconds_bucket{endpoint="/metrics",label1="value1",method="GET",status="200",le="0.005"} 1
-api_http_requests_duration_seconds_bucket{endpoint="/metrics",label1="value1",method="GET",status="200",le="0.01"} 1
-api_http_requests_duration_seconds_bucket{endpoint="/metrics",label1="value1",method="GET",status="200",le="0.025"} 1
-api_http_requests_duration_seconds_bucket{endpoint="/metrics",label1="value1",method="GET",status="200",le="0.05"} 1
-api_http_requests_duration_seconds_bucket{endpoint="/metrics",label1="value1",method="GET",status="200",le="0.1"} 1
-api_http_requests_duration_seconds_bucket{endpoint="/metrics",label1="value1",method="GET",status="200",le="0.25"} 1
-api_http_requests_duration_seconds_bucket{endpoint="/metrics",label1="value1",method="GET",status="200",le="0.5"} 1
-api_http_requests_duration_seconds_bucket{endpoint="/metrics",label1="value1",method="GET",status="200",le="1"} 1
-api_http_requests_duration_seconds_bucket{endpoint="/metrics",label1="value1",method="GET",status="200",le="2.5"} 1
-api_http_requests_duration_seconds_bucket{endpoint="/metrics",label1="value1",method="GET",status="200",le="5"} 1
-api_http_requests_duration_seconds_bucket{endpoint="/metrics",label1="value1",method="GET",status="200",le="10"} 1
-api_http_requests_duration_seconds_bucket{endpoint="/metrics",label1="value1",method="GET",status="200",le="+Inf"} 1
-api_http_requests_duration_seconds_sum{endpoint="/metrics",label1="value1",method="GET",status="200"} 0.00003
-api_http_requests_duration_seconds_count{endpoint="/metrics",label1="value1",method="GET",status="200"} 1
-# HELP api_http_requests_total Total number of HTTP requests
-# TYPE api_http_requests_total counter
-api_http_requests_total{endpoint="/metrics",label1="value1",method="GET",status="200"} 1
+$ curl http://localhost:9000/metrics
+# HELP http_requests_total Total number of HTTP requests
+# TYPE http_requests_total counter
+http_requests_total{endpoint="/health",method="GET",status="200",label1="value1"} 1
+
+# HELP http_requests_duration_seconds HTTP request duration in seconds for all requests
+# TYPE http_requests_duration_seconds summary
+http_requests_duration_seconds{endpoint="/health",method="GET",status="200",label1="value1",quantile="0"} 0.000302807
+http_requests_duration_seconds{endpoint="/health",method="GET",status="200",label1="value1",quantile="0.5"} 0.00030278122831198045
+http_requests_duration_seconds{endpoint="/health",method="GET",status="200",label1="value1",quantile="0.9"} 0.00030278122831198045
+http_requests_duration_seconds{endpoint="/health",method="GET",status="200",label1="value1",quantile="0.95"} 0.00030278122831198045
+http_requests_duration_seconds{endpoint="/health",method="GET",status="200",label1="value1",quantile="0.99"} 0.00030278122831198045
+http_requests_duration_seconds{endpoint="/health",method="GET",status="200",label1="value1",quantile="0.999"} 0.00030278122831198045
+http_requests_duration_seconds{endpoint="/health",method="GET",status="200",label1="value1",quantile="1"} 0.000302807
+http_requests_duration_seconds_sum{endpoint="/health",method="GET",status="200",label1="value1"} 0.000302807
+http_requests_duration_seconds_count{endpoint="/health",method="GET",status="200",label1="value1"} 1
 ```
 
-### Features
-If you enable `process` feature of this crate, default process metrics will also be collected.
-[Default process metrics](https://prometheus.io/docs/instrumenting/writing_clientlibs/#process-metrics)
+NOTE: There are 2 important things to note:
+* The `metrics-exporter-prometheus` crate can be swapped for another metrics.rs compatible exporter.
+* The endpoint exposed by `metrics-exporter-prometheus` is not part of the actix web http server.
 
-```shell
-# HELP process_cpu_seconds_total Total user and system CPU time spent in seconds.
-# TYPE process_cpu_seconds_total counter
-process_cpu_seconds_total 0.22
-# HELP process_max_fds Maximum number of open file descriptors.
-# TYPE process_max_fds gauge
-process_max_fds 1048576
-# HELP process_open_fds Number of open file descriptors.
-# TYPE process_open_fds gauge
-process_open_fds 78
-# HELP process_resident_memory_bytes Resident memory size in bytes.
-# TYPE process_resident_memory_bytes gauge
-process_resident_memory_bytes 17526784
-# HELP process_start_time_seconds Start time of the process since unix epoch in seconds.
-# TYPE process_start_time_seconds gauge
-process_start_time_seconds 1628105774.92
-# HELP process_virtual_memory_bytes Virtual memory size in bytes.
-# TYPE process_virtual_memory_bytes gauge
-process_virtual_memory_bytes 1893163008
-```
+# Features
 
-### Custom metrics
+## Custom metrics
 
-You instantiate `PrometheusMetrics` and then use its `.registry` to register your custom
-metric (in this case, we use a `IntCounterVec`).
-
-Then you can pass this counter through `.data()` to have it available within the resource
-responder.
+The [metrics.rs](https://docs.rs/metrics/latest/metrics) crate provides macros for custom metrics.
+This crate does not interfere with that functionality.
 
 ```rust
 use actix_web::{web, App, HttpResponse, HttpServer};
-use actix_web_prom::{PrometheusMetrics, PrometheusMetricsBuilder};
-use prometheus::{opts, IntCounterVec};
+use actix_web_metrics::{ActixWebMetrics, ActixWebMetricsBuilder};
+use metrics::counter;
 
-async fn health(counter: web::Data<IntCounterVec>) -> HttpResponse {
-    counter.with_label_values(&["endpoint", "method", "status"]).inc();
+async fn health() -> HttpResponse {
+    counter!("my_custom_counter").increment(1);
     HttpResponse::Ok().finish()
 }
 
 #[actix_web::main]
 async fn main() -> std::io::Result<()> {
-    let prometheus = PrometheusMetricsBuilder::new("api")
-        .endpoint("/metrics")
+    let metrics = ActixWebMetricsBuilder::new()
         .build()
-        .unwrap();
-
-    let counter_opts = opts!("counter", "some random counter").namespace("api");
-    let counter = IntCounterVec::new(counter_opts, &["endpoint", "method", "status"]).unwrap();
-    prometheus
-        .registry
-        .register(Box::new(counter.clone()))
         .unwrap();
 
         HttpServer::new(move || {
             App::new()
-                .wrap(prometheus.clone())
-                .data(counter.clone())
+                .wrap(metrics.clone())
                 .service(web::resource("/health").to(health))
         })
         .bind("127.0.0.1:8080")?
@@ -161,88 +125,18 @@ async fn main() -> std::io::Result<()> {
 }
 ```
 
-### Custom `Registry`
-
-Some apps might have more than one `actix_web::HttpServer`.
-If that's the case, you might want to use your own registry:
-
-```rust
-use actix_web::{web, App, HttpResponse, HttpServer};
-use actix_web_prom::{PrometheusMetrics, PrometheusMetricsBuilder};
-use actix_web::rt::System;
-use prometheus::Registry;
-use std::thread;
-
-async fn public_handler() -> HttpResponse {
-    HttpResponse::Ok().body("Everyone can see it!")
-}
-
-async fn private_handler() -> HttpResponse {
-    HttpResponse::Ok().body("This can be hidden behind a firewall")
-}
-
-fn main() -> std::io::Result<()> {
-    let shared_registry = Registry::new();
-
-    let private_metrics = PrometheusMetricsBuilder::new("private_api")
-        .registry(shared_registry.clone())
-        .endpoint("/metrics")
-        .build()
-        // It is safe to unwrap when __no other app has the same namespace__
-        .unwrap();
-
-    let public_metrics = PrometheusMetricsBuilder::new("public_api")
-        .registry(shared_registry.clone())
-        // Metrics should not be available from the outside
-        // so no endpoint is registered
-        .build()
-        .unwrap();
-
-    let private_thread = thread::spawn(move || {
-        let mut sys = System::new();
-        let srv = HttpServer::new(move || {
-            App::new()
-                .wrap(private_metrics.clone())
-                .service(web::resource("/test").to(private_handler))
-        })
-        .bind("127.0.0.1:8081")
-        .unwrap()
-        .run();
-        sys.block_on(srv).unwrap();
-    });
-
-    let public_thread = thread::spawn(|| {
-        let mut sys = System::new();
-        let srv = HttpServer::new(move || {
-            App::new()
-                .wrap(public_metrics.clone())
-                .service(web::resource("/test").to(public_handler))
-        })
-        .bind("127.0.0.1:8082")
-        .unwrap()
-        .run();
-        sys.block_on(srv).unwrap();
-    });
-
-    private_thread.join().unwrap();
-    public_thread.join().unwrap();
-    Ok(())
-}
-
-```
-
-### Configurable routes pattern cardinality
+## Configurable routes pattern cardinality
 
 Let's say you have on your app a route to fetch posts by language and by slug `GET /posts/{language}/{slug}`.
-By default, actix-web-prom will provide metrics for the whole route with the label `endpoint` set to the pattern `/posts/{language}/{slug}`.
+By default, actix-web-metrics will provide metrics for the whole route with the label `endpoint` set to the pattern `/posts/{language}/{slug}`.
 This is great but you cannot differentiate metrics across languages (as there is only a limited set of them).
-Actix-web-prom can be configured to allow for more cardinality on some route params.
+Actix-web-metrics can be configured to allow for more cardinality on some route params.
 
-For that you need to add a middleware to pass some [extensions data](https://blog.adamchalmers.com/what-are-extensions/), specifically the `MetricsConfig` struct that contains the list of params you want to keep cardinality on.
+For that you need to add a middleware to pass some [extensions data](https://blog.adamchalmers.com/what-are-extensions/), specifically the [`MetricsConfig`] struct that contains the list of params you want to keep cardinality on.
 
 ```rust
 use actix_web::{dev::Service, web, HttpMessage, HttpResponse};
-use actix_web_prom::MetricsConfig;
+use actix_web_metrics::MetricsConfig;
 
 async fn handler() -> HttpResponse {
     HttpResponse::Ok().finish()
@@ -260,18 +154,18 @@ web::resource("/posts/{language}/{slug}")
 
 See the full example `with_cardinality_on_params.rs`.
 
-### Configurable metric names
+## Configurable metric names
 
-If you want to rename the default metrics, you can use `ActixMetricsConfiguration` to do so.
+If you want to rename the default metrics, you can use [`ActixMetricsConfiguration`] to do so.
 
 ```rust
-use actix_web_prom::{PrometheusMetricsBuilder, ActixMetricsConfiguration};
+use actix_web_metrics::{ActixWebMetricsBuilder, ActixMetricsConfiguration};
 
-PrometheusMetricsBuilder::new("api")
-    .endpoint("/metrics")
+ActixWebMetricsBuilder::new()
     .metrics_configuration(
         ActixMetricsConfiguration::default()
-        .http_requests_duration_seconds_name("my_http_request_duration"),
+        .http_requests_duration_seconds_name("my_http_request_duration")
+        .http_requests_duration_seconds_name("my_http_requests_duration_seconds"),
     )
     .build()
     .unwrap();
@@ -279,32 +173,47 @@ PrometheusMetricsBuilder::new("api")
 
 See full example `configuring_default_metrics.rs`.
 
-### Masking unknown paths
+## Masking unmatched requests
 
-This is useful to avoid producting lots and lots of useless metrics due to bots on the internet.
+By default, if a request path is not matched to an Actix Web route, it will be masked as `UNKNOWN`.
+This is useful to avoid producing lots of useless metrics due to bots or malicious actors.
 
-What this does is transform a path that will never be found (404) into *one single
-metric*. So, if you want metrics about every single path that is hit, even if it doesn't
-exist, avoid this section altogether.
+This can be configured in the following ways:
+* `mask_unmatched_patterns()` can be used to change the endpoint label to something other than `UNKNOWN`.
+* `disable_unmatched_pattern_masking()` can be used to disable this masking functionality.
 
-```rust
-use actix_web_prom::PrometheusMetricsBuilder;
+```rust,no_run
+use actix_web_metrics::ActixWebMetricsBuilder;
 
-PrometheusMetricsBuilder::new("api")
-    .endpoint("/metrics")
-    .mask_unmatched_patterns("UNKNOWN")
+ActixWebMetricsBuilder::new()
+    .mask_unmatched_patterns("UNMATCHED")
+    // or .disable_unmatched_pattern_masking()
     .build()
     .unwrap();
 ```
 
-The above will convert all `/<nonexistent-path>` into `UNKNOWN`:
+The above will convert all `/<nonexistent-path>` into `UNMATCHED`:
 
-```
+```text
 http_requests_duration_seconds_sum{endpoint="/favicon.ico",method="GET",status="400"} 0.000424898
 ```
 
 becomes
 
+```text
+http_requests_duration_seconds_sum{endpoint="UNMATCHED",method="GET",status="400"} 0.000424898
 ```
-http_requests_duration_seconds_sum{endpoint="UNKNOWN",method="GET",status="400"} 0.000424898
-```
+
+# Motivations
+
+`actix-web-metrics` is heavily inspired (and forked from) [`actix-web-prom`](https://github.com/nlopes/actix-web-prom). 
+Special thanks to @nlopes for their excellent work on `actix-web-prom`.
+
+This crate replaces the underlying metrics implementation from the [`prometheus`](https://docs.rs/prometheus/latest/prometheus) crate with [`metrics.rs`](https://metrics.rs).
+
+The reasons for doing this are as followed:
+
+* The metrics.rs ecosystem provides more ergonomic ways to instrument applications than the raw prometheus client.
+* `metrics.rs` provides more customizable ways to export metrics.
+* The future of the `prometheus` crate is uncertain (see https://github.com/tikv/rust-prometheus/issues/530)
+

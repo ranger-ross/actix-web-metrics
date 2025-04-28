@@ -1,0 +1,142 @@
+---
+source: tests/integration_tests.rs
+expression: snapshot
+---
+Snapshot(
+    [
+        (
+            CompositeKey(
+                Histogram,
+                Key {
+                    name: KeyName(
+                        "http_requests_duration_seconds",
+                    ),
+                    labels: [
+                        Label(
+                            "endpoint",
+                            "/resource/foo/{expensive}",
+                        ),
+                        Label(
+                            "method",
+                            "GET",
+                        ),
+                        Label(
+                            "status",
+                            "200",
+                        ),
+                    ],
+                    hashed: true,
+                    hash: 16677604285899448330,
+                },
+            ),
+            None,
+            Some(
+                "HTTP request duration in seconds for all requests",
+            ),
+            Histogram(
+                [],
+            ),
+        ),
+        (
+            CompositeKey(
+                Counter,
+                Key {
+                    name: KeyName(
+                        "http_requests_total",
+                    ),
+                    labels: [
+                        Label(
+                            "endpoint",
+                            "/resource/foo/{expensive}",
+                        ),
+                        Label(
+                            "method",
+                            "GET",
+                        ),
+                        Label(
+                            "status",
+                            "200",
+                        ),
+                    ],
+                    hashed: true,
+                    hash: 1110937024453075126,
+                },
+            ),
+            None,
+            Some(
+                "Total number of HTTP requests",
+            ),
+            Counter(
+                1,
+            ),
+        ),
+        (
+            CompositeKey(
+                Histogram,
+                Key {
+                    name: KeyName(
+                        "http_requests_duration_seconds",
+                    ),
+                    labels: [
+                        Label(
+                            "endpoint",
+                            "/resource/{cheap}/{expensive}",
+                        ),
+                        Label(
+                            "method",
+                            "GET",
+                        ),
+                        Label(
+                            "status",
+                            "404",
+                        ),
+                    ],
+                    hashed: true,
+                    hash: 1935409250685086246,
+                },
+            ),
+            None,
+            Some(
+                "HTTP request duration in seconds for all requests",
+            ),
+            Histogram(
+                [
+                    [VALUE],
+                ],
+            ),
+        ),
+        (
+            CompositeKey(
+                Counter,
+                Key {
+                    name: KeyName(
+                        "http_requests_total",
+                    ),
+                    labels: [
+                        Label(
+                            "endpoint",
+                            "/resource/{cheap}/{expensive}",
+                        ),
+                        Label(
+                            "method",
+                            "GET",
+                        ),
+                        Label(
+                            "status",
+                            "404",
+                        ),
+                    ],
+                    hashed: true,
+                    hash: 1479735831029129173,
+                },
+            ),
+            None,
+            Some(
+                "Total number of HTTP requests",
+            ),
+            Counter(
+                1,
+            ),
+        ),
+    ],
+)

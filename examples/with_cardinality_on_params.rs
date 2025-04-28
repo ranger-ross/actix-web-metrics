@@ -4,7 +4,8 @@ use actix_web::dev::Service;
 use actix_web::HttpMessage;
 
 use actix_web::{web, App, HttpResponse, HttpServer, Responder};
-use actix_web_prom::{MetricsConfig, PrometheusMetricsBuilder};
+use actix_web_metrics::{ActixWebMetricsBuilder, MetricsConfig};
+use metrics_exporter_prometheus::PrometheusBuilder;
 
 async fn health() -> HttpResponse {
     HttpResponse::Ok().finish()
@@ -16,17 +17,18 @@ async fn get_posts_details() -> impl Responder {
 
 #[actix_web::main]
 async fn main() -> std::io::Result<()> {
+    PrometheusBuilder::new().install().unwrap();
+
     let mut labels = HashMap::new();
     labels.insert("label1".to_string(), "value1".to_string());
-    let prometheus = PrometheusMetricsBuilder::new("api")
-        .endpoint("/metrics")
+    let metrics = ActixWebMetricsBuilder::new()
         .const_labels(labels)
         .build()
         .unwrap();
 
     HttpServer::new(move || {
         App::new()
-            .wrap(prometheus.clone())
+            .wrap(metrics.clone())
             .service(web::resource("/health").to(health))
             .service(
                 web::resource("/mixed/{cheap}/{expensive}")

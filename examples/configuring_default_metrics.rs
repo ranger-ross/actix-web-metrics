@@ -1,5 +1,6 @@
 use actix_web::{web, App, HttpResponse, HttpServer};
-use actix_web_prom::{ActixMetricsConfiguration, PrometheusMetricsBuilder};
+use actix_web_metrics::{ActixMetricsConfiguration, ActixWebMetricsBuilder};
+use metrics_exporter_prometheus::PrometheusBuilder;
 
 async fn health() -> HttpResponse {
     HttpResponse::Ok().finish()
@@ -7,8 +8,9 @@ async fn health() -> HttpResponse {
 
 #[actix_web::main]
 async fn main() -> std::io::Result<()> {
-    let prometheus = PrometheusMetricsBuilder::new("api")
-        .endpoint("/metrics")
+    PrometheusBuilder::new().install().unwrap();
+
+    let metrics = ActixWebMetricsBuilder::new()
         .metrics_configuration(
             ActixMetricsConfiguration::default()
                 .http_requests_duration_seconds_name("my_http_request_duration"),
@@ -18,7 +20,7 @@ async fn main() -> std::io::Result<()> {
 
     HttpServer::new(move || {
         App::new()
-            .wrap(prometheus.clone())
+            .wrap(metrics.clone())
             .service(web::resource("/health").to(health))
     })
     .bind("127.0.0.1:8080")?

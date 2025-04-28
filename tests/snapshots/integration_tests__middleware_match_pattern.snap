@@ -1,0 +1,76 @@
+---
+source: tests/integration_tests.rs
+expression: snapshot
+---
+Snapshot(
+    [
+        (
+            CompositeKey(
+                Histogram,
+                Key {
+                    name: KeyName(
+                        "http_requests_duration_seconds",
+                    ),
+                    labels: [
+                        Label(
+                            "endpoint",
+                            "/resource/{id}",
+                        ),
+                        Label(
+                            "method",
+                            "GET",
+                        ),
+                        Label(
+                            "status",
+                            "200",
+                        ),
+                    ],
+                    hashed: true,
+                    hash: 11462130968459872522,
+                },
+            ),
+            None,
+            Some(
+                "HTTP request duration in seconds for all requests",
+            ),
+            Histogram(
+                [
+                    [VALUE],
+                ],
+            ),
+        ),
+        (
+            CompositeKey(
+                Counter,
+                Key {
+                    name: KeyName(
+                        "http_requests_total",
+                    ),
+                    labels: [
+                        Label(
+                            "endpoint",
+                            "/resource/{id}",
+                        ),
+                        Label(
+                            "method",
+                            "GET",
+                        ),
+                        Label(
+                            "status",
+                            "200",
+                        ),
+                    ],
+                    hashed: true,
+                    hash: 103529397668321150,
+                },
+            ),
+            None,
+            Some(
+                "Total number of HTTP requests",
+            ),
+            Counter(
+                1,
+            ),
+        ),
+    ],
+)

@@ -10,6 +10,12 @@ env:
   CARGO_TERM_COLOR: always
 
 jobs:
+  typos:
+    runs-on: ubuntu-latest
+    steps:
+    - uses: actions/checkout@v4
+    - uses: crate-ci/typos@v1.31.1
+
   build:
     runs-on: ubuntu-latest
     continue-on-error: ${{ matrix.nightly }}
@@ -25,20 +31,22 @@ jobs:
 
     steps:
     - uses: actions/checkout@v4
-    
+
     - name: Install ${{ matrix.toolchain }} toolchain
       uses: dtolnay/rust-toolchain@master
       with:
         toolchain: ${{ matrix.toolchain }}
         components: clippy, rustfmt
-    
+
+    - uses: taiki-e/install-action@nextest
+
     - uses: Swatinem/rust-cache@v2
 
     - name: Run cargo fmt
       run: cargo fmt --all --check
 
     - name: Run tests
-      run: cargo test --all-features --all-targets --verbose
+      run: cargo nextest run --all-features --all-targets
 
     - name: Run doc tests
       run: cargo test --doc --verbose

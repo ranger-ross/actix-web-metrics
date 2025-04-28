@@ -1,0 +1,92 @@
+---
+source: tests/integration_tests.rs
+expression: snapshot
+---
+Snapshot(
+    [
+        (
+            CompositeKey(
+                Histogram,
+                Key {
+                    name: KeyName(
+                        "http_requests_duration_seconds",
+                    ),
+                    labels: [
+                        Label(
+                            "endpoint",
+                            "/health_check",
+                        ),
+                        Label(
+                            "method",
+                            "GET",
+                        ),
+                        Label(
+                            "status",
+                            "200",
+                        ),
+                        Label(
+                            "label1",
+                            "value1",
+                        ),
+                        Label(
+                            "label2",
+                            "value2",
+                        ),
+                    ],
+                    hashed: true,
+                    hash: 12538042168141437319,
+                },
+            ),
+            None,
+            Some(
+                "HTTP request duration in seconds for all requests",
+            ),
+            Histogram(
+                [
+                    [VALUE],
+                ],
+            ),
+        ),
+        (
+            CompositeKey(
+                Counter,
+                Key {
+                    name: KeyName(
+                        "http_requests_total",
+                    ),
+                    labels: [
+                        Label(
+                            "endpoint",
+                            "/health_check",
+                        ),
+                        Label(
+                            "method",
+                            "GET",
+                        ),
+                        Label(
+                            "status",
+                            "200",
+                        ),
+                        Label(
+                            "label1",
+                            "value1",
+                        ),
+                        Label(
+                            "label2",
+                            "value2",
+                        ),
+                    ],
+                    hashed: true,
+                    hash: 2488315760618099640,
+                },
+            ),
+            None,
+            Some(
+                "Total number of HTTP requests",
+            ),
+            Counter(
+                1,
+            ),
+        ),
+    ],
+)
