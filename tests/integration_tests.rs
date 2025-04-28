@@ -5,7 +5,7 @@ use actix_web::http::{StatusCode, Version};
 use actix_web::test::{call_service, init_service, read_body, TestRequest};
 use actix_web::{web, App, HttpMessage, HttpResponse, Resource, Scope};
 use actix_web_metrics::{
-    ActixMetricsConfiguration, ActixWebMetricsBuilder, LabelsConfiguration, MetricsConfig,
+    ActixWebMetricsBuilder, ActixWebMetricsConfig, ActixWebMetricsExtension, LabelsConfig,
 };
 use metrics::{counter, Key, Label};
 use metrics_util::debugging::{DebugValue, DebuggingRecorder, Snapshotter};
@@ -48,9 +48,8 @@ async fn middleware_http_version() {
     let snapshotter = install_debug_recorder();
 
     let prometheus = ActixWebMetricsBuilder::new()
-        .metrics_configuration(
-            ActixMetricsConfiguration::default()
-                .labels(LabelsConfiguration::default().version("version")),
+        .metrics_config(
+            ActixWebMetricsConfig::default().labels(LabelsConfig::default().version("version")),
         )
         .build()
         .unwrap();
@@ -163,9 +162,11 @@ async fn middleware_with_mixed_params_cardinality() {
         App::new().wrap(prometheus).service(
             web::resource("/resource/{cheap}/{expensive}")
                 .wrap_fn(|req, srv| {
-                    req.extensions_mut().insert::<MetricsConfig>(MetricsConfig {
-                        cardinality_keep_params: vec!["cheap".to_string()],
-                    });
+                    req.extensions_mut().insert::<ActixWebMetricsExtension>(
+                        ActixWebMetricsExtension {
+                            cardinality_keep_params: vec!["cheap".to_string()],
+                        },
+                    );
                     srv.call(req)
                 })
                 .to(|path: web::Path<(String, String)>| async {
@@ -291,15 +292,15 @@ async fn middleware_const_labels() {
 }
 
 #[actix_web::test]
-async fn middleware_metrics_configuration() {
+async fn middleware_metrics_config() {
     let snapshotter = install_debug_recorder();
 
-    let metrics_config = ActixMetricsConfiguration::default()
+    let metrics_config = ActixWebMetricsConfig::default()
         .http_requests_duration_seconds_name("my_http_request_duration")
         .http_requests_total_name("my_http_requests_total");
 
     let prometheus = ActixWebMetricsBuilder::new()
-        .metrics_configuration(metrics_config)
+        .metrics_config(metrics_config)
         .build()
         .unwrap();
 
