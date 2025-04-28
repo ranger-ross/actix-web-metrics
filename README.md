@@ -203,3 +203,17 @@ becomes
 ```text
 http_requests_duration_seconds_sum{endpoint="UNMATCHED",method="GET",status="400"} 0.000424898
 ```
+
+# Motivations
+
+`actix-web-metrics` is heavily inspired (and forked from) [`actix-web-prom`](https://github.com/nlopes/actix-web-prom). 
+Special thanks to @nlopes for thier excellent work on `actix-web-prom`.
+
+This crate replaces the unliying metrics implmentation from the [`prometheus`](https://docs.rs/prometheus/latest/prometheus) crate to [`metrics.rs`](https://metrics.rs).
+
+The reasons for doing this are as followed:
+
+* The metrics.rs ecosystem provide more ergonomic ways to instrument applications than the raw prometheus client.
+* metrics.rs provide more customizible ways to export metrics.
+* The future of the `prometheus` crate is uncertain (see https://github.com/tikv/rust-prometheus/issues/530)
+
