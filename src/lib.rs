@@ -1,12 +1,12 @@
 /*!
-Prometheus instrumentation for [actix-web](https://github.com/actix/actix-web). This middleware is heavily influenced by the work in [sd2k/rocket_prometheus](https://github.com/sd2k/rocket_prometheus). We track the same default metrics and allow for adding user defined metrics.
+[Metrics.rs](https://metrics.rs) integration for [actix-web](https://github.com/actix/actix-web).
 
-By default two metrics are tracked (this assumes the namespace `actix_web_prom`):
+By default two metrics are tracked:
 
-  - `actix_web_prom_http_requests_total` (labels: endpoint, method, status): the total number
+  - `http_requests_total` (labels: endpoint, method, status): the total number
     of HTTP requests handled by the actix HttpServer.
 
-  - `actix_web_prom_http_requests_duration_seconds` (labels: endpoint, method, status): the
+  - `http_requests_duration_seconds` (labels: endpoint, method, status): the
     request duration for all HTTP requests handled by the actix HttpServer.
 
 
@@ -19,7 +19,7 @@ First add `actix-web-metrics` to your `Cargo.toml`:
 actix-web-metrics = "x.x.x"
 ```
 
-You then instantiate the prometheus middleware and pass it to `.wrap()`:
+You then instantiate the metrics middleware and pass it to `.wrap()`:
 
 ```rust
 use std::collections::HashMap;
@@ -43,10 +43,7 @@ async fn main() -> std::io::Result<()> {
     PrometheusBuilder::new().install().unwrap();
 # }
     // Configure & build the Actix-Web middleware layer
-    let mut labels = HashMap::new();
-    labels.insert("label1".to_string(), "value1".to_string());
     let metrics = ActixWebMetricsBuilder::new()
-        .const_labels(labels)
         .build()
         .unwrap();
 
@@ -64,52 +61,43 @@ async fn main() -> std::io::Result<()> {
 }
 ```
 
-Using the above as an example, a few things are worth mentioning:
- - `api` is the metrics namespace
- - `/metrics` will be auto exposed (GET requests only) with Content-Type header `content-type: text/plain; version=0.0.4; charset=utf-8`
- - `Some(labels)` is used to add fixed labels to the metrics; `None` can be passed instead
-   if no additional labels are necessary.
+In the example above we are using the `PrometheusBuilder` from the [metrics-exporter-prometheus](https://docs.rs/metrics-exporter-prometheus/latest/metrics_exporter_prometheus) crate which exposes the metrics via an HTTP endpoint.
 
-
-A call to the /metrics endpoint will expose your metrics:
+A call to the `localhost:9000/metrics` endpoint will expose your metrics:
 
 ```shell
-$ curl http://localhost:8080/metrics
-# HELP api_http_requests_duration_seconds HTTP request duration in seconds for all requests
-# TYPE api_http_requests_duration_seconds histogram
-api_http_requests_duration_seconds_bucket{endpoint="/metrics",label1="value1",method="GET",status="200",le="0.005"} 1
-api_http_requests_duration_seconds_bucket{endpoint="/metrics",label1="value1",method="GET",status="200",le="0.01"} 1
-api_http_requests_duration_seconds_bucket{endpoint="/metrics",label1="value1",method="GET",status="200",le="0.025"} 1
-api_http_requests_duration_seconds_bucket{endpoint="/metrics",label1="value1",method="GET",status="200",le="0.05"} 1
-api_http_requests_duration_seconds_bucket{endpoint="/metrics",label1="value1",method="GET",status="200",le="0.1"} 1
-api_http_requests_duration_seconds_bucket{endpoint="/metrics",label1="value1",method="GET",status="200",le="0.25"} 1
-api_http_requests_duration_seconds_bucket{endpoint="/metrics",label1="value1",method="GET",status="200",le="0.5"} 1
-api_http_requests_duration_seconds_bucket{endpoint="/metrics",label1="value1",method="GET",status="200",le="1"} 1
-api_http_requests_duration_seconds_bucket{endpoint="/metrics",label1="value1",method="GET",status="200",le="2.5"} 1
-api_http_requests_duration_seconds_bucket{endpoint="/metrics",label1="value1",method="GET",status="200",le="5"} 1
-api_http_requests_duration_seconds_bucket{endpoint="/metrics",label1="value1",method="GET",status="200",le="10"} 1
-api_http_requests_duration_seconds_bucket{endpoint="/metrics",label1="value1",method="GET",status="200",le="+Inf"} 1
-api_http_requests_duration_seconds_sum{endpoint="/metrics",label1="value1",method="GET",status="200"} 0.00003
-api_http_requests_duration_seconds_count{endpoint="/metrics",label1="value1",method="GET",status="200"} 1
-# HELP api_http_requests_total Total number of HTTP requests
-# TYPE api_http_requests_total counter
-api_http_requests_total{endpoint="/metrics",label1="value1",method="GET",status="200"} 1
+$ curl http://localhost:9000/metrics
+# HELP http_requests_total Total number of HTTP requests
+# TYPE http_requests_total counter
+http_requests_total{endpoint="/health",method="GET",status="200",label1="value1"} 1
+
+# HELP http_requests_duration_seconds HTTP request duration in seconds for all requests
+# TYPE http_requests_duration_seconds summary
+http_requests_duration_seconds{endpoint="/health",method="GET",status="200",label1="value1",quantile="0"} 0.000302807
+http_requests_duration_seconds{endpoint="/health",method="GET",status="200",label1="value1",quantile="0.5"} 0.00030278122831198045
+http_requests_duration_seconds{endpoint="/health",method="GET",status="200",label1="value1",quantile="0.9"} 0.00030278122831198045
+http_requests_duration_seconds{endpoint="/health",method="GET",status="200",label1="value1",quantile="0.95"} 0.00030278122831198045
+http_requests_duration_seconds{endpoint="/health",method="GET",status="200",label1="value1",quantile="0.99"} 0.00030278122831198045
+http_requests_duration_seconds{endpoint="/health",method="GET",status="200",label1="value1",quantile="0.999"} 0.00030278122831198045
+http_requests_duration_seconds{endpoint="/health",method="GET",status="200",label1="value1",quantile="1"} 0.000302807
+http_requests_duration_seconds_sum{endpoint="/health",method="GET",status="200",label1="value1"} 0.000302807
+http_requests_duration_seconds_count{endpoint="/health",method="GET",status="200",label1="value1"} 1
 ```
+
+NOTE: There are 2 important things to note:
+* The `metrics-exporter-prometheus` crate can be swapped for another metrics.rs compatible exporter.
+* The endpoint exposed by `metrics-exporter-prometheus` is not part of the actix web http server.
 
 # Features
 
 ## Custom metrics
 
-You instantiate `PrometheusMetrics` and then use its `.registry` to register your custom
-metric (in this case, we use a `IntCounterVec`).
-
-Then you can pass this counter through `.data()` to have it available within the resource
-responder.
+The [metrics.rs](https://docs.rs/metrics/latest/metrics) crate provides macros for custom metrics.
+This crate does interfere with that functionality.
 
 ```rust
 use actix_web::{web, App, HttpResponse, HttpServer};
 use actix_web_metrics::{ActixWebMetrics, ActixWebMetricsBuilder};
-use metrics_exporter_prometheus::PrometheusBuilder;
 use metrics::counter;
 
 async fn health() -> HttpResponse {
@@ -140,11 +128,11 @@ async fn main() -> std::io::Result<()> {
 ## Configurable routes pattern cardinality
 
 Let's say you have on your app a route to fetch posts by language and by slug `GET /posts/{language}/{slug}`.
-By default, actix-web-prom will provide metrics for the whole route with the label `endpoint` set to the pattern `/posts/{language}/{slug}`.
+By default, actix-web-metrics will provide metrics for the whole route with the label `endpoint` set to the pattern `/posts/{language}/{slug}`.
 This is great but you cannot differentiate metrics across languages (as there is only a limited set of them).
-Actix-web-prom can be configured to allow for more cardinality on some route params.
+Actix-web-metrics can be configured to allow for more cardinality on some route params.
 
-For that you need to add a middleware to pass some [extensions data](https://blog.adamchalmers.com/what-are-extensions/), specifically the `MetricsConfig` struct that contains the list of params you want to keep cardinality on.
+For that you need to add a middleware to pass some [extensions data](https://blog.adamchalmers.com/what-are-extensions/), specifically the [`MetricsConfig`] struct that contains the list of params you want to keep cardinality on.
 
 ```rust
 use actix_web::{dev::Service, web, HttpMessage, HttpResponse};
@@ -168,7 +156,7 @@ See the full example `with_cardinality_on_params.rs`.
 
 ## Configurable metric names
 
-If you want to rename the default metrics, you can use `ActixMetricsConfiguration` to do so.
+If you want to rename the default metrics, you can use [`ActixMetricsConfiguration`] to do so.
 
 ```rust
 use actix_web_metrics::{ActixWebMetricsBuilder, ActixMetricsConfiguration};
@@ -176,7 +164,8 @@ use actix_web_metrics::{ActixWebMetricsBuilder, ActixMetricsConfiguration};
 ActixWebMetricsBuilder::new()
     .metrics_configuration(
         ActixMetricsConfiguration::default()
-        .http_requests_duration_seconds_name("my_http_request_duration"),
+        .http_requests_duration_seconds_name("my_http_request_duration")
+        .http_requests_duration_seconds_name("my_http_requests_duration_seconds"),
     )
     .build()
     .unwrap();
@@ -184,24 +173,26 @@ ActixWebMetricsBuilder::new()
 
 See full example `configuring_default_metrics.rs`.
 
-## Masking unknown paths
+## Masking unmatched requests
 
-This is useful to avoid producting lots and lots of useless metrics due to bots on the internet.
+By default, if a request path is not matched to an Actix Web route, it will be masked as `UNKNOWN`.
+This is useful to avoid producting lots of useless metrics due to bots or malious actors.
 
-What this does is transform a path that will never be found (404) into *one single
-metric*. So, if you want metrics about every single path that is hit, even if it doesn't
-exist, avoid this section altogether.
+This can be configured in the following ways:
+* `mask_unmatched_patterns()` can be used to change the endpoint label to something other than `UNKNOWN`.
+* `disable_unmatched_pattern_masking()` can be used to disable this masking functionality.
 
 ```rust,no_run
 use actix_web_metrics::ActixWebMetricsBuilder;
 
 ActixWebMetricsBuilder::new()
-    .mask_unmatched_patterns("UNKNOWN")
+    .mask_unmatched_patterns("UNMATCHED")
+    // or .disable_unmatched_pattern_masking()
     .build()
     .unwrap();
 ```
 
-The above will convert all `/<nonexistent-path>` into `UNKNOWN`:
+The above will convert all `/<nonexistent-path>` into `UNMATCHED`:
 
 ```text
 http_requests_duration_seconds_sum{endpoint="/favicon.ico",method="GET",status="400"} 0.000424898
@@ -210,7 +201,7 @@ http_requests_duration_seconds_sum{endpoint="/favicon.ico",method="GET",status="
 becomes
 
 ```text
-http_requests_duration_seconds_sum{endpoint="UNKNOWN",method="GET",status="400"} 0.000424898
+http_requests_duration_seconds_sum{endpoint="UNMATCHED",method="GET",status="400"} 0.000424898
 ```
 */
 #![deny(missing_docs)]
@@ -246,9 +237,7 @@ pub struct MetricsConfig {
     pub cardinality_keep_params: Vec<String>,
 }
 
-/// Builder to create new PrometheusMetrics struct.HistogramVec
-///
-/// It allows setting optional parameters like registry, buckets, etc.
+/// Builder to create new [`ActixWebMetrics`] struct.
 #[derive(Debug)]
 pub struct ActixWebMetricsBuilder {
     namespace: Option<String>,
@@ -261,9 +250,7 @@ pub struct ActixWebMetricsBuilder {
 }
 
 impl ActixWebMetricsBuilder {
-    /// Create new `PrometheusMetricsBuilder`
-    ///
-    /// namespace example: "actix"
+    /// Create new `ActixWebMetricsBuilder`
     pub fn new() -> Self {
         Self {
             namespace: None,
@@ -319,7 +306,7 @@ impl ActixWebMetricsBuilder {
     /// Disable masking of unmatched patterns.
     ///
     /// WARNING:This may lead to unbounded cardinality for unmatched requests. (potential DoS)
-    pub fn unmask_unmatched_patterns(mut self) -> Self {
+    pub fn disable_unmatched_pattern_masking(mut self) -> Self {
         self.unmatched_patterns_mask = None;
         self
     }
@@ -330,7 +317,7 @@ impl ActixWebMetricsBuilder {
         self
     }
 
-    /// Instantiate `PrometheusMetrics` struct
+    /// Instantiate `ActixWebMetrics` struct
     ///
     /// WARNING: This call purposefully leaks the memory of metrics and label names to avoid
     /// allocations during runtime. Avoid calling more than once.
@@ -687,7 +674,7 @@ where
     }
 }
 
-/// Middleware service for PrometheusMetrics
+/// Middleware service for [`ActixWebMetrics`]
 #[doc(hidden)]
 pub struct MetricsMiddleware<S> {
     service: S,

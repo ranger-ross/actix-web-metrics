@@ -213,7 +213,7 @@ async fn middleware_basic_failure() {
     let snapshotter = install_debug_recorder();
 
     let prometheus = ActixWebMetricsBuilder::new()
-        .unmask_unmatched_patterns()
+        .disable_unmatched_pattern_masking()
         .build()
         .unwrap();
 
