@@ -44,8 +44,7 @@ async fn main() -> std::io::Result<()> {
 # }
     // Configure & build the Actix-Web middleware layer
     let metrics = ActixWebMetricsBuilder::new()
-        .build()
-        .unwrap();
+        .build();
 
 # if false {
     HttpServer::new(move || {
@@ -110,8 +109,7 @@ async fn health() -> HttpResponse {
 #[actix_web::main]
 async fn main() -> std::io::Result<()> {
     let metrics = ActixWebMetricsBuilder::new()
-        .build()
-        .unwrap();
+        .build();
 
 # if false {
         HttpServer::new(move || {
@@ -169,8 +167,7 @@ ActixWebMetricsBuilder::new()
            .http_requests_duration_seconds_name("my_http_request_duration")
            .http_requests_duration_seconds_name("my_http_requests_duration_seconds"),
     )
-    .build()
-    .unwrap();
+    .build();
 ```
 
 See full example `configuring_default_metrics.rs`.
@@ -190,8 +187,7 @@ use actix_web_metrics::ActixWebMetricsBuilder;
 ActixWebMetricsBuilder::new()
     .mask_unmatched_patterns("UNMATCHED")
     // or .disable_unmatched_pattern_masking()
-    .build()
-    .unwrap();
+    .build();
 ```
 
 The above will convert all `/<nonexistent-path>` into `UNMATCHED`:
