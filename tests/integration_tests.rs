@@ -25,7 +25,7 @@ fn install_debug_recorder() -> Snapshotter {
 async fn middleware_basic() {
     let snapshotter = install_debug_recorder();
 
-    let prometheus = ActixWebMetricsBuilder::new().build().unwrap();
+    let prometheus = ActixWebMetricsBuilder::new().build();
 
     let app = init_service(
         App::new()
@@ -51,8 +51,7 @@ async fn middleware_http_version() {
         .metrics_config(
             ActixWebMetricsConfig::default().labels(LabelsConfig::default().version("version")),
         )
-        .build()
-        .unwrap();
+        .build();
 
     let app = init_service(
         App::new()
@@ -106,7 +105,7 @@ async fn middleware_http_version() {
 async fn middleware_match_pattern() {
     let snapshotter = install_debug_recorder();
 
-    let prometheus = ActixWebMetricsBuilder::new().build().unwrap();
+    let prometheus = ActixWebMetricsBuilder::new().build();
 
     let app = init_service(
         App::new()
@@ -131,8 +130,7 @@ async fn middleware_with_mask_unmatched_pattern() {
 
     let prometheus = ActixWebMetricsBuilder::new()
         .mask_unmatched_patterns("UNKNOWN")
-        .build()
-        .unwrap();
+        .build();
 
     let app = init_service(
         App::new()
@@ -156,7 +154,7 @@ async fn middleware_with_mixed_params_cardinality() {
     let snapshotter = install_debug_recorder();
 
     // we want to keep metrics label on the "cheap param" but not on the "expensive" param
-    let prometheus = ActixWebMetricsBuilder::new().build().unwrap();
+    let prometheus = ActixWebMetricsBuilder::new().build();
 
     let app = init_service(
         App::new().wrap(prometheus).service(
@@ -215,8 +213,7 @@ async fn middleware_basic_failure() {
 
     let prometheus = ActixWebMetricsBuilder::new()
         .disable_unmatched_pattern_masking()
-        .build()
-        .unwrap();
+        .build();
 
     let app = init_service(
         App::new()
@@ -237,7 +234,7 @@ async fn middleware_basic_failure() {
 async fn middleware_custom_counter() {
     let snapshotter = install_debug_recorder();
 
-    let prometheus = ActixWebMetricsBuilder::new().build().unwrap();
+    let prometheus = ActixWebMetricsBuilder::new().build();
 
     let app = init_service(
         App::new()
@@ -269,10 +266,7 @@ async fn middleware_const_labels() {
     let mut labels = HashMap::new();
     labels.insert("label1".to_string(), "value1".to_string());
     labels.insert("label2".to_string(), "value2".to_string());
-    let prometheus = ActixWebMetricsBuilder::new()
-        .const_labels(labels)
-        .build()
-        .unwrap();
+    let prometheus = ActixWebMetricsBuilder::new().const_labels(labels).build();
 
     let app = init_service(
         App::new()
@@ -301,8 +295,7 @@ async fn middleware_metrics_config() {
 
     let prometheus = ActixWebMetricsBuilder::new()
         .metrics_config(metrics_config)
-        .build()
-        .unwrap();
+        .build();
 
     let app = init_service(
         App::new()
@@ -324,21 +317,21 @@ async fn middleware_metrics_config() {
 #[test]
 fn compat_with_non_boxed_middleware() {
     let _app = App::new()
-        .wrap(ActixWebMetricsBuilder::new().build().unwrap())
+        .wrap(ActixWebMetricsBuilder::new().build())
         .wrap(actix_web::middleware::Logger::default())
         .route("", web::to(|| async { "" }));
 
     let _app = App::new()
         .wrap(actix_web::middleware::Logger::default())
-        .wrap(ActixWebMetricsBuilder::new().build().unwrap())
+        .wrap(ActixWebMetricsBuilder::new().build())
         .route("", web::to(|| async { "" }));
 
     let _scope = Scope::new("")
-        .wrap(ActixWebMetricsBuilder::new().build().unwrap())
+        .wrap(ActixWebMetricsBuilder::new().build())
         .route("", web::to(|| async { "" }));
 
     let _resource = Resource::new("")
-        .wrap(ActixWebMetricsBuilder::new().build().unwrap())
+        .wrap(ActixWebMetricsBuilder::new().build())
         .route(web::to(|| async { "" }));
 }
 
@@ -350,8 +343,7 @@ async fn middleware_excludes() {
         .exclude("/ping")
         .exclude_regex("/readyz/.*")
         .exclude_status(StatusCode::NOT_FOUND)
-        .build()
-        .unwrap();
+        .build();
 
     let app = init_service(
         App::new()

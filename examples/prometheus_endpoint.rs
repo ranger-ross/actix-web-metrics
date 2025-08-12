@@ -16,10 +16,7 @@ async fn get_metrics(prometheus: web::Data<PrometheusHandle>) -> HttpResponse {
 async fn main() -> std::io::Result<()> {
     let prometheus = PrometheusBuilder::new().install_recorder().unwrap();
 
-    let metrics = ActixWebMetricsBuilder::new()
-        .exclude("/metrics")
-        .build()
-        .unwrap();
+    let metrics = ActixWebMetricsBuilder::new().exclude("/metrics").build();
 
     HttpServer::new(move || {
         App::new()
