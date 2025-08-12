@@ -7,23 +7,18 @@ use actix_web::{web, App, HttpMessage, HttpResponse, Resource, Scope};
 use actix_web_metrics::{
     ActixWebMetricsBuilder, ActixWebMetricsConfig, ActixWebMetricsExtension, LabelsConfig,
 };
-use metrics::{counter, Key, Label};
-use metrics_util::debugging::{DebugValue, DebuggingRecorder, Snapshotter};
+use metrics::{counter, set_default_local_recorder, Key, Label};
+use metrics_util::debugging::{DebugValue, DebuggingRecorder};
 use metrics_util::{CompositeKey, MetricKind};
 
-const SNAPSHOT_FILTERS: [(&'static str, &'static str); 2] =
+const SNAPSHOT_FILTERS: [(&str, &str); 2] =
     [(r"\d\.\d+e-\d+", "[VALUE]"), (r"\d\.\d{5, 20}", "[VALUE]")];
-
-fn install_debug_recorder() -> Snapshotter {
-    let recorder = DebuggingRecorder::new();
-    let snapshotter = recorder.snapshotter();
-    recorder.install().unwrap();
-    snapshotter
-}
 
 #[actix_web::test]
 async fn middleware_basic() {
-    let snapshotter = install_debug_recorder();
+    let recorder = DebuggingRecorder::new();
+    let snapshotter = recorder.snapshotter();
+    let _guard = set_default_local_recorder(&recorder);
 
     let prometheus = ActixWebMetricsBuilder::new().build().unwrap();
 
@@ -45,7 +40,9 @@ async fn middleware_basic() {
 
 #[actix_web::test]
 async fn middleware_http_version() {
-    let snapshotter = install_debug_recorder();
+    let recorder = DebuggingRecorder::new();
+    let snapshotter = recorder.snapshotter();
+    let _guard = set_default_local_recorder(&recorder);
 
     let prometheus = ActixWebMetricsBuilder::new()
         .metrics_config(
@@ -83,6 +80,7 @@ async fn middleware_http_version() {
         }
     }
 
+    #[allow(clippy::mutable_key_type)]
     let snap = snapshotter.snapshot().into_hashmap();
 
     for (http_version, repeats) in test_cases {
@@ -104,7 +102,9 @@ async fn middleware_http_version() {
 
 #[actix_web::test]
 async fn middleware_match_pattern() {
-    let snapshotter = install_debug_recorder();
+    let recorder = DebuggingRecorder::new();
+    let snapshotter = recorder.snapshotter();
+    let _guard = set_default_local_recorder(&recorder);
 
     let prometheus = ActixWebMetricsBuilder::new().build().unwrap();
 
@@ -127,7 +127,9 @@ async fn middleware_match_pattern() {
 
 #[actix_web::test]
 async fn middleware_with_mask_unmatched_pattern() {
-    let snapshotter = install_debug_recorder();
+    let recorder = DebuggingRecorder::new();
+    let snapshotter = recorder.snapshotter();
+    let _guard = set_default_local_recorder(&recorder);
 
     let prometheus = ActixWebMetricsBuilder::new()
         .mask_unmatched_patterns("UNKNOWN")
@@ -153,7 +155,9 @@ async fn middleware_with_mask_unmatched_pattern() {
 
 #[actix_web::test]
 async fn middleware_with_mixed_params_cardinality() {
-    let snapshotter = install_debug_recorder();
+    let recorder = DebuggingRecorder::new();
+    let snapshotter = recorder.snapshotter();
+    let _guard = set_default_local_recorder(&recorder);
 
     // we want to keep metrics label on the "cheap param" but not on the "expensive" param
     let prometheus = ActixWebMetricsBuilder::new().build().unwrap();
@@ -211,7 +215,9 @@ async fn middleware_with_mixed_params_cardinality() {
 
 #[actix_web::test]
 async fn middleware_basic_failure() {
-    let snapshotter = install_debug_recorder();
+    let recorder = DebuggingRecorder::new();
+    let snapshotter = recorder.snapshotter();
+    let _guard = set_default_local_recorder(&recorder);
 
     let prometheus = ActixWebMetricsBuilder::new()
         .disable_unmatched_pattern_masking()
@@ -235,7 +241,9 @@ async fn middleware_basic_failure() {
 
 #[actix_web::test]
 async fn middleware_custom_counter() {
-    let snapshotter = install_debug_recorder();
+    let recorder = DebuggingRecorder::new();
+    let snapshotter = recorder.snapshotter();
+    let _guard = set_default_local_recorder(&recorder);
 
     let prometheus = ActixWebMetricsBuilder::new().build().unwrap();
 
@@ -264,7 +272,9 @@ async fn middleware_custom_counter() {
 
 #[actix_web::test]
 async fn middleware_const_labels() {
-    let snapshotter = install_debug_recorder();
+    let recorder = DebuggingRecorder::new();
+    let snapshotter = recorder.snapshotter();
+    let _guard = set_default_local_recorder(&recorder);
 
     let mut labels = HashMap::new();
     labels.insert("label1".to_string(), "value1".to_string());
@@ -293,7 +303,9 @@ async fn middleware_const_labels() {
 
 #[actix_web::test]
 async fn middleware_metrics_config() {
-    let snapshotter = install_debug_recorder();
+    let recorder = DebuggingRecorder::new();
+    let snapshotter = recorder.snapshotter();
+    let _guard = set_default_local_recorder(&recorder);
 
     let metrics_config = ActixWebMetricsConfig::default()
         .http_requests_duration_seconds_name("my_http_request_duration")
@@ -344,7 +356,9 @@ fn compat_with_non_boxed_middleware() {
 
 #[actix_web::test]
 async fn middleware_excludes() {
-    let snapshotter = install_debug_recorder();
+    let recorder = DebuggingRecorder::new();
+    let snapshotter = recorder.snapshotter();
+    let _guard = set_default_local_recorder(&recorder);
 
     let prometheus = ActixWebMetricsBuilder::new()
         .exclude("/ping")
