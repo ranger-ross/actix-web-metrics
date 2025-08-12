@@ -21,10 +21,7 @@ async fn main() -> std::io::Result<()> {
 
     let mut labels = HashMap::new();
     labels.insert("label1".to_string(), "value1".to_string());
-    let metrics = ActixWebMetricsBuilder::new()
-        .const_labels(labels)
-        .build()
-        .unwrap();
+    let metrics = ActixWebMetricsBuilder::new().const_labels(labels).build();
 
     HttpServer::new(move || {
         App::new()

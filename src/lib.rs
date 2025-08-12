@@ -323,7 +323,7 @@ impl ActixWebMetricsBuilder {
     ///
     /// WARNING: This call purposefully leaks the memory of metrics and label names to avoid
     /// allocations during runtime. Avoid calling more than once.
-    pub fn build(self) -> Result<ActixWebMetrics, Box<dyn std::error::Error + Send + Sync>> {
+    pub fn build(self) -> ActixWebMetrics {
         let namespace_prefix = if let Some(ns) = self.namespace {
             format!("{ns}_")
         } else {
@@ -364,7 +364,7 @@ impl ActixWebMetricsBuilder {
             .collect();
         const_labels.sort_by_key(|v| v.0);
 
-        Ok(ActixWebMetrics {
+        ActixWebMetrics {
             exclude: self.exclude,
             exclude_regex: self.exclude_regex,
             exclude_status: self.exclude_status,
@@ -381,7 +381,7 @@ impl ActixWebMetricsBuilder {
                 version,
                 const_labels,
             },
-        })
+        }
     }
 }
 

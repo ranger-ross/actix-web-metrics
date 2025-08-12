@@ -15,8 +15,7 @@ async fn main() -> std::io::Result<()> {
             ActixWebMetricsConfig::default()
                 .http_requests_duration_seconds_name("my_http_request_duration"),
         )
-        .build()
-        .unwrap();
+        .build();
 
     HttpServer::new(move || {
         App::new()

@@ -12,7 +12,7 @@ async fn health() -> HttpResponse {
 async fn main() -> std::io::Result<()> {
     PrometheusBuilder::new().install().unwrap();
 
-    let metrics = ActixWebMetricsBuilder::new().build().unwrap();
+    let metrics = ActixWebMetricsBuilder::new().build();
 
     HttpServer::new(move || {
         App::new()
