@@ -389,3 +389,31 @@ async fn middleware_excludes() {
         insta::assert_debug_snapshot!(snapshot);
     });
 }
+
+#[actix_web::test]
+async fn middleware_with_size_metrics() {
+    let recorder = DebuggingRecorder::new();
+    let snapshotter = recorder.snapshotter();
+    let _guard = set_default_local_recorder(&recorder);
+
+    let prometheus = ActixWebMetricsBuilder::new()
+        .enable_request_size_metrics()
+        .enable_response_size_metrics()
+        .build();
+
+    let app = init_service(
+        App::new()
+            .wrap(prometheus)
+            .service(web::resource("/health_check").to(|| async { HttpResponse::Ok().body("test response") })),
+    )
+    .await;
+
+    let res = call_service(&app, TestRequest::with_uri("/health_check").to_request()).await;
+    assert!(res.status().is_success());
+    assert_eq!(read_body(res).await, "test response");
+
+    let snapshot = snapshotter.snapshot();
+    insta::with_settings!({filters => SNAPSHOT_FILTERS}, {
+        insta::assert_debug_snapshot!(snapshot);
+    });
+}

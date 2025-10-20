@@ -9,6 +9,14 @@ By default two metrics are tracked:
   - `http_requests_duration_seconds` (labels: endpoint, method, status): the
     request duration for all HTTP requests handled by the actix HttpServer.
 
+Optionally, two additional metrics can be enabled:
+
+  - `http_request_size_bytes` (labels: endpoint, method, status): the size of
+    HTTP requests in bytes (requires `enable_request_size_metrics()`).
+
+  - `http_response_size_bytes` (labels: endpoint, method, status): the size of
+    HTTP responses in bytes (requires `enable_response_size_metrics()`).
+
 
 # Usage
 
@@ -245,6 +253,8 @@ pub struct ActixWebMetricsBuilder {
     exclude_status: HashSet<StatusCode>,
     unmatched_patterns_mask: Option<String>,
     metrics_config: ActixWebMetricsConfig,
+    enable_request_size_metrics: bool,
+    enable_response_size_metrics: bool,
 }
 
 impl ActixWebMetricsBuilder {
@@ -258,6 +268,8 @@ impl ActixWebMetricsBuilder {
             exclude_status: HashSet::new(),
             unmatched_patterns_mask: Some("UNKNOWN".to_string()),
             metrics_config: ActixWebMetricsConfig::default(),
+            enable_request_size_metrics: false,
+            enable_response_size_metrics: false,
         }
     }
 
@@ -315,6 +327,22 @@ impl ActixWebMetricsBuilder {
         self
     }
 
+    /// Enable request size metrics
+    ///
+    /// This will track the `http_request_size_bytes` metric based on the Content-Length header
+    pub fn enable_request_size_metrics(mut self) -> Self {
+        self.enable_request_size_metrics = true;
+        self
+    }
+
+    /// Enable response size metrics
+    ///
+    /// This will track the `http_response_size_bytes` metric based on actual bytes sent
+    pub fn enable_response_size_metrics(mut self) -> Self {
+        self.enable_response_size_metrics = true;
+        self
+    }
+
     /// Instantiate `ActixWebMetrics` struct
     ///
     /// WARNING: This call purposefully leaks the memory of metrics and label names to avoid
@@ -343,6 +371,28 @@ impl ActixWebMetricsBuilder {
             "Total number of HTTP requests"
         );
 
+        let http_request_size_bytes_name = format!(
+            "{namespace_prefix}{}",
+            self.metrics_config.http_request_size_bytes_name
+        );
+        if self.enable_request_size_metrics {
+            describe_histogram!(
+                http_request_size_bytes_name.clone(),
+                "HTTP request size in bytes for all requests"
+            );
+        }
+
+        let http_response_size_bytes_name = format!(
+            "{namespace_prefix}{}",
+            self.metrics_config.http_response_size_bytes_name
+        );
+        if self.enable_response_size_metrics {
+            describe_histogram!(
+                http_response_size_bytes_name.clone(),
+                "HTTP response size in bytes for all requests"
+            );
+        }
+
         let version: Option<&'static str> = if let Some(ref v) = self.metrics_config.labels.version
         {
             Some(Box::leak(Box::new(v.clone())))
@@ -366,11 +416,15 @@ impl ActixWebMetricsBuilder {
             exclude_status: self.exclude_status,
             enable_http_version_label: self.metrics_config.labels.version.is_some(),
             unmatched_patterns_mask: self.unmatched_patterns_mask,
+            enable_request_size_metrics: self.enable_request_size_metrics,
+            enable_response_size_metrics: self.enable_response_size_metrics,
             names: MetricsMetadata {
                 http_requests_total: Box::leak(Box::new(http_requests_total_name)),
                 http_requests_duration_seconds: Box::leak(Box::new(
                     http_requests_duration_seconds_name,
                 )),
+                http_request_size_bytes: Box::leak(Box::new(http_request_size_bytes_name)),
+                http_response_size_bytes: Box::leak(Box::new(http_response_size_bytes_name)),
                 endpoint: Box::leak(Box::new(self.metrics_config.labels.endpoint)),
                 method: Box::leak(Box::new(self.metrics_config.labels.method)),
                 status: Box::leak(Box::new(self.metrics_config.labels.status)),
@@ -440,6 +494,8 @@ impl LabelsConfig {
 pub struct ActixWebMetricsConfig {
     http_requests_total_name: String,
     http_requests_duration_seconds_name: String,
+    http_request_size_bytes_name: String,
+    http_response_size_bytes_name: String,
     labels: LabelsConfig,
 }
 
@@ -448,6 +504,8 @@ impl Default for ActixWebMetricsConfig {
         Self {
             http_requests_total_name: String::from("http_requests_total"),
             http_requests_duration_seconds_name: String::from("http_requests_duration_seconds"),
+            http_request_size_bytes_name: String::from("http_request_size_bytes"),
+            http_response_size_bytes_name: String::from("http_response_size_bytes"),
             labels: LabelsConfig::default(),
         }
     }
@@ -471,6 +529,18 @@ impl ActixWebMetricsConfig {
         self.http_requests_duration_seconds_name = name.into();
         self
     }
+
+    /// Set name for `http_request_size_bytes` metric
+    pub fn http_request_size_bytes_name<T: Into<String>>(mut self, name: T) -> Self {
+        self.http_request_size_bytes_name = name.into();
+        self
+    }
+
+    /// Set name for `http_response_size_bytes` metric
+    pub fn http_response_size_bytes_name<T: Into<String>>(mut self, name: T) -> Self {
+        self.http_response_size_bytes_name = name.into();
+        self
+    }
 }
 
 /// Static references to variable metrics/label names.
@@ -479,6 +549,8 @@ impl ActixWebMetricsConfig {
 struct MetricsMetadata {
     http_requests_total: &'static str,
     http_requests_duration_seconds: &'static str,
+    http_request_size_bytes: &'static str,
+    http_response_size_bytes: &'static str,
     endpoint: &'static str,
     method: &'static str,
     status: &'static str,
@@ -493,6 +565,14 @@ struct MetricsMetadata {
 ///
 /// - `http_requests_duration_seconds` (labels: endpoint, method, status):
 ///   the request duration for all HTTP requests handled by the actix `HttpServer`.
+///
+/// Optionally, two additional metrics can be enabled:
+///
+/// - `http_request_size_bytes` (labels: endpoint, method, status): the size of
+///   HTTP requests in bytes (requires `enable_request_size_metrics()`).
+///
+/// - `http_response_size_bytes` (labels: endpoint, method, status): the size of
+///   HTTP responses in bytes (requires `enable_response_size_metrics()`).
 #[derive(Clone)]
 #[must_use = "must be set up as middleware for actix-web"]
 pub struct ActixWebMetrics {
@@ -503,6 +583,8 @@ pub struct ActixWebMetrics {
     pub(crate) exclude_status: HashSet<StatusCode>,
     pub(crate) enable_http_version_label: bool,
     pub(crate) unmatched_patterns_mask: Option<String>,
+    pub(crate) enable_request_size_metrics: bool,
+    pub(crate) enable_response_size_metrics: bool,
 }
 
 impl ActixWebMetrics {
@@ -516,6 +598,8 @@ impl ActixWebMetrics {
         status: StatusCode,
         clock: Instant,
         was_path_matched: bool,
+        request_size: usize,
+        response_size: usize,
     ) {
         if self.exclude.contains(mixed_pattern)
             || self.exclude_regex.is_match(mixed_pattern)
@@ -562,6 +646,13 @@ impl ActixWebMetrics {
         histogram!(self.names.http_requests_duration_seconds, &labels).record(duration);
 
         counter!(self.names.http_requests_total, &labels).increment(1);
+
+        if self.enable_request_size_metrics {
+            histogram!(self.names.http_request_size_bytes, &labels).record(request_size as f64);
+        }
+        if self.enable_response_size_metrics {
+            histogram!(self.names.http_response_size_bytes, &labels).record(response_size as f64);
+        }
     }
 
     fn http_version_label(version: Version) -> &'static str {
@@ -663,10 +754,19 @@ where
             }
         };
 
+        // Get request size from Content-Length header
+        let request_size = req
+            .headers()
+            .get("content-length")
+            .and_then(|v| v.to_str().ok())
+            .and_then(|v| v.parse::<usize>().ok())
+            .unwrap_or(0);
+
         let inner = this.inner.clone();
         Poll::Ready(Ok(res.map_body(move |head, body| StreamLog {
             body,
-            size: 0,
+            response_size: 0,
+            request_size,
             clock: time,
             inner,
             status: head.status,
@@ -711,7 +811,8 @@ pin_project! {
     pub struct StreamLog<B> {
         #[pin]
         body: B,
-        size: usize,
+        response_size: usize,
+        request_size: usize,
         clock: Instant,
         inner: Arc<ActixWebMetrics>,
         status: StatusCode,
@@ -728,7 +829,7 @@ pin_project! {
         fn drop(this: Pin<&mut Self>) {
             // update the metrics for this request at the very end of responding
             this.inner
-                .update_metrics(this.version, &this.mixed_pattern, &this.fallback_pattern, &this.method, this.status, this.clock, this.was_path_matched);
+                .update_metrics(this.version, &this.mixed_pattern, &this.fallback_pattern, &this.method, this.status, this.clock, this.was_path_matched, this.request_size, this.response_size);
         }
     }
 }
@@ -747,7 +848,7 @@ impl<B: MessageBody> MessageBody for StreamLog<B> {
         let this = self.project();
         match ready!(this.body.poll_next(cx)) {
             Some(Ok(chunk)) => {
-                *this.size += chunk.len();
+                *this.response_size += chunk.len();
                 Poll::Ready(Some(Ok(chunk)))
             }
             Some(Err(err)) => Poll::Ready(Some(Err(err))),
