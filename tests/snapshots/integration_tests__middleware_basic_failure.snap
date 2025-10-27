@@ -54,12 +54,16 @@ Snapshot(
                             "404",
                         ),
                         Label(
+                            "network.protocol.name",
+                            "http",
+                        ),
+                        Label(
                             "network.protocol.version",
-                            "HTTP/1.1",
+                            "1.1",
                         ),
                     ],
                     hashed: true,
-                    hash: 12782553236716061545,
+                    hash: 25129047093963930,
                 },
             ),
             Some(
@@ -95,12 +99,16 @@ Snapshot(
                             "404",
                         ),
                         Label(
+                            "network.protocol.name",
+                            "http",
+                        ),
+                        Label(
                             "network.protocol.version",
-                            "HTTP/1.1",
+                            "1.1",
                         ),
                     ],
                     hashed: true,
-                    hash: 13782332720323228816,
+                    hash: 4503426486413587047,
                 },
             ),
             Some(
@@ -136,12 +144,16 @@ Snapshot(
                             "404",
                         ),
                         Label(
+                            "network.protocol.name",
+                            "http",
+                        ),
+                        Label(
                             "network.protocol.version",
-                            "HTTP/1.1",
+                            "1.1",
                         ),
                     ],
                     hashed: true,
-                    hash: 67830220333018398,
+                    hash: 16607261531665141877,
                 },
             ),
             Some(

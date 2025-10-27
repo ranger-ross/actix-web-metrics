@@ -54,12 +54,16 @@ Snapshot(
                             "200",
                         ),
                         Label(
+                            "network.protocol.name",
+                            "http",
+                        ),
+                        Label(
                             "network.protocol.version",
-                            "HTTP/1.1",
+                            "1.1",
                         ),
                     ],
                     hashed: true,
-                    hash: 7626886901460482715,
+                    hash: 14892745194231097394,
                 },
             ),
             Some(
@@ -95,12 +99,16 @@ Snapshot(
                             "200",
                         ),
                         Label(
+                            "network.protocol.name",
+                            "http",
+                        ),
+                        Label(
                             "network.protocol.version",
-                            "HTTP/1.1",
+                            "1.1",
                         ),
                     ],
                     hashed: true,
-                    hash: 8975417841123520154,
+                    hash: 2671228208563877907,
                 },
             ),
             Some(
@@ -136,12 +144,16 @@ Snapshot(
                             "200",
                         ),
                         Label(
+                            "network.protocol.name",
+                            "http",
+                        ),
+                        Label(
                             "network.protocol.version",
-                            "HTTP/1.1",
+                            "1.1",
                         ),
                     ],
                     hashed: true,
-                    hash: 16267533380526830454,
+                    hash: 10596307819733633283,
                 },
             ),
             Some(

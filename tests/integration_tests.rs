@@ -44,7 +44,8 @@ async fn middleware_http_version() {
 
     let metrics = ActixWebMetricsBuilder::new()
         .metrics_config(
-            ActixWebMetricsConfig::default().labels(LabelsConfig::default().version("version")),
+            ActixWebMetricsConfig::default()
+                .labels(LabelsConfig::default().network_protocol_version("version")),
         )
         .build();
 
