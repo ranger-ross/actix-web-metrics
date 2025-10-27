@@ -9,7 +9,7 @@ Snapshot(
                 Histogram,
                 Key {
                     name: KeyName(
-                        "http_requests_duration_seconds",
+                        "http_requests_duration",
                     ),
                     labels: [
                         Label(
@@ -26,10 +26,12 @@ Snapshot(
                         ),
                     ],
                     hashed: true,
-                    hash: 8295931754385516202,
+                    hash: 14957052442257005279,
                 },
             ),
-            None,
+            Some(
+                Seconds,
+            ),
             Some(
                 "HTTP request duration in seconds for all requests",
             ),
@@ -68,6 +70,76 @@ Snapshot(
             ),
             Counter(
                 1,
+            ),
+        ),
+        (
+            CompositeKey(
+                Histogram,
+                Key {
+                    name: KeyName(
+                        "http_request_size",
+                    ),
+                    labels: [
+                        Label(
+                            "endpoint",
+                            "/health_check",
+                        ),
+                        Label(
+                            "method",
+                            "GET",
+                        ),
+                        Label(
+                            "status",
+                            "200",
+                        ),
+                    ],
+                    hashed: true,
+                    hash: 10794684138722550338,
+                },
+            ),
+            Some(
+                Bytes,
+            ),
+            Some(
+                "HTTP request size in bytes for all requests",
+            ),
+            Histogram(
+                [],
+            ),
+        ),
+        (
+            CompositeKey(
+                Histogram,
+                Key {
+                    name: KeyName(
+                        "http_response_size",
+                    ),
+                    labels: [
+                        Label(
+                            "endpoint",
+                            "/health_check",
+                        ),
+                        Label(
+                            "method",
+                            "GET",
+                        ),
+                        Label(
+                            "status",
+                            "200",
+                        ),
+                    ],
+                    hashed: true,
+                    hash: 2422584779787545555,
+                },
+            ),
+            Some(
+                Bytes,
+            ),
+            Some(
+                "HTTP response size in bytes for all requests",
+            ),
+            Histogram(
+                [],
             ),
         ),
         (
