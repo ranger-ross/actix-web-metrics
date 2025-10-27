@@ -77,7 +77,7 @@ Snapshot(
                 Histogram,
                 Key {
                     name: KeyName(
-                        "http_request_size_bytes",
+                        "http_request_size",
                     ),
                     labels: [
                         Label(
@@ -94,10 +94,12 @@ Snapshot(
                         ),
                     ],
                     hashed: true,
-                    hash: 13620723620507228801,
+                    hash: 4317199347527505797,
                 },
             ),
-            None,
+            Some(
+                Bytes,
+            ),
             Some(
                 "HTTP request size in bytes for all requests",
             ),
@@ -112,7 +114,7 @@ Snapshot(
                 Histogram,
                 Key {
                     name: KeyName(
-                        "http_response_size_bytes",
+                        "http_response_size",
                     ),
                     labels: [
                         Label(
@@ -129,10 +131,12 @@ Snapshot(
                         ),
                     ],
                     hashed: true,
-                    hash: 430591921257428667,
+                    hash: 5170175450852361176,
                 },
             ),
-            None,
+            Some(
+                Bytes,
+            ),
             Some(
                 "HTTP response size in bytes for all requests",
             ),

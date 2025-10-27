@@ -211,7 +211,7 @@ http_requests_duration_seconds_sum{endpoint="UNMATCHED",method="GET",status="400
 #![deny(missing_docs)]
 
 use log::warn;
-use metrics::{counter, describe_counter, describe_histogram, histogram};
+use metrics::{counter, describe_counter, describe_histogram, histogram, Unit};
 use std::collections::{HashMap, HashSet};
 use std::future::{ready, Future, Ready};
 use std::marker::PhantomData;
@@ -355,6 +355,7 @@ impl ActixWebMetricsBuilder {
         );
         describe_histogram!(
             http_request_size_bytes_name.clone(),
+            Unit::Bytes,
             "HTTP request size in bytes for all requests"
         );
 
@@ -364,6 +365,7 @@ impl ActixWebMetricsBuilder {
         );
         describe_histogram!(
             http_response_size_bytes_name.clone(),
+            Unit::Bytes,
             "HTTP response size in bytes for all requests"
         );
 
@@ -476,8 +478,8 @@ impl Default for ActixWebMetricsConfig {
         Self {
             http_requests_total_name: String::from("http_requests_total"),
             http_requests_duration_seconds_name: String::from("http_requests_duration_seconds"),
-            http_request_size_bytes_name: String::from("http_request_size_bytes"),
-            http_response_size_bytes_name: String::from("http_response_size_bytes"),
+            http_request_size_bytes_name: String::from("http_request_size"),
+            http_response_size_bytes_name: String::from("http_response_size"),
             labels: LabelsConfig::default(),
         }
     }
