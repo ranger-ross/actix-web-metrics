@@ -6,6 +6,35 @@ Snapshot(
     [
         (
             CompositeKey(
+                Gauge,
+                Key {
+                    name: KeyName(
+                        "http.server.active_requests",
+                    ),
+                    labels: [
+                        Label(
+                            "http.request.method",
+                            "GET",
+                        ),
+                        Label(
+                            "url.scheme",
+                            "http",
+                        ),
+                    ],
+                    hashed: true,
+                    hash: 1764143306982493858,
+                },
+            ),
+            None,
+            Some(
+                "Number of active HTTP server requests.",
+            ),
+            Gauge(
+                0.0,
+            ),
+        ),
+        (
+            CompositeKey(
                 Histogram,
                 Key {
                     name: KeyName(
@@ -25,6 +54,10 @@ Snapshot(
                             "200",
                         ),
                         Label(
+                            "network.protocol.version",
+                            "HTTP/1.1",
+                        ),
+                        Label(
                             "label1",
                             "value1",
                         ),
@@ -34,7 +67,7 @@ Snapshot(
                         ),
                     ],
                     hashed: true,
-                    hash: 7642191187087606700,
+                    hash: 18375081671611971853,
                 },
             ),
             Some(
@@ -70,6 +103,10 @@ Snapshot(
                             "200",
                         ),
                         Label(
+                            "network.protocol.version",
+                            "HTTP/1.1",
+                        ),
+                        Label(
                             "label1",
                             "value1",
                         ),
@@ -79,7 +116,7 @@ Snapshot(
                         ),
                     ],
                     hashed: true,
-                    hash: 6127352987159278997,
+                    hash: 480467876785453020,
                 },
             ),
             Some(
@@ -115,6 +152,10 @@ Snapshot(
                             "200",
                         ),
                         Label(
+                            "network.protocol.version",
+                            "HTTP/1.1",
+                        ),
+                        Label(
                             "label1",
                             "value1",
                         ),
@@ -124,7 +165,7 @@ Snapshot(
                         ),
                     ],
                     hashed: true,
-                    hash: 6998760293122313763,
+                    hash: 17752257695274005738,
                 },
             ),
             Some(

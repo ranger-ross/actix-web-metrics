@@ -226,8 +226,9 @@ http_requests_duration_seconds_sum{http_route="UNMATCHED",http_request_method="G
 */
 #![deny(missing_docs)]
 
+use actix_web::http::Uri;
 use log::warn;
-use metrics::{describe_histogram, gauge, histogram, Unit};
+use metrics::{describe_gauge, describe_histogram, gauge, histogram, Unit};
 use std::collections::{HashMap, HashSet};
 use std::future::{ready, Future, Ready};
 use std::marker::PhantomData;
@@ -378,12 +379,14 @@ impl ActixWebMetricsBuilder {
             "HTTP response size in bytes for all requests"
         );
 
-        let version: Option<&'static str> = if let Some(ref v) = self.metrics_config.labels.version
-        {
-            Some(Box::leak(Box::new(v.clone())))
-        } else {
-            None
-        };
+        let http_server_active_requests_name = format!(
+            "{namespace_prefix}{}",
+            self.metrics_config.http_server_active_requests_name
+        );
+        describe_gauge!(
+            http_server_active_requests_name.clone(),
+            "Number of active HTTP server requests."
+        );
 
         let mut const_labels: Vec<(&'static str, String)> = self
             .const_labels
@@ -396,23 +399,32 @@ impl ActixWebMetricsBuilder {
         const_labels.sort_by_key(|v| v.0);
 
         ActixWebMetrics {
-            exclude: self.exclude,
-            exclude_regex: self.exclude_regex,
-            exclude_status: self.exclude_status,
-            enable_http_version_label: self.metrics_config.labels.version.is_some(),
-            unmatched_patterns_mask: self.unmatched_patterns_mask,
-            names: MetricsMetadata {
-                http_requests_duration_seconds: Box::leak(Box::new(
-                    http_server_request_duration_name,
-                )),
-                http_request_size_bytes: Box::leak(Box::new(http_server_request_body_size_name)),
-                http_response_size_bytes: Box::leak(Box::new(http_server_response_body_size_name)),
-                endpoint: Box::leak(Box::new(self.metrics_config.labels.route)),
-                method: Box::leak(Box::new(self.metrics_config.labels.method)),
-                status: Box::leak(Box::new(self.metrics_config.labels.status)),
-                version,
-                const_labels,
-            },
+            inner: Arc::new(ActixWebMetricsInner {
+                exclude: self.exclude,
+                exclude_regex: self.exclude_regex,
+                exclude_status: self.exclude_status,
+                unmatched_patterns_mask: self.unmatched_patterns_mask,
+                names: MetricsMetadata {
+                    http_requests_duration_seconds: Box::leak(Box::new(
+                        http_server_request_duration_name,
+                    )),
+                    http_request_size_bytes: Box::leak(Box::new(
+                        http_server_request_body_size_name,
+                    )),
+                    http_response_size_bytes: Box::leak(Box::new(
+                        http_server_response_body_size_name,
+                    )),
+                    http_server_active_requests: Box::leak(Box::new(
+                        http_server_active_requests_name,
+                    )),
+                    http_route: Box::leak(Box::new(self.metrics_config.labels.route)),
+                    http_request_method: Box::leak(Box::new(self.metrics_config.labels.method)),
+                    http_response_status: Box::leak(Box::new(self.metrics_config.labels.status)),
+                    http_version: Box::leak(Box::new(self.metrics_config.labels.version)),
+                    url_scheme: Box::leak(Box::new(self.metrics_config.labels.url_scheme)),
+                    const_labels,
+                },
+            }),
         }
     }
 }
@@ -429,7 +441,8 @@ pub struct LabelsConfig {
     route: String,
     method: String,
     status: String,
-    version: Option<String>,
+    version: String,
+    url_scheme: String,
 }
 
 impl Default for LabelsConfig {
@@ -438,7 +451,8 @@ impl Default for LabelsConfig {
             route: String::from("http.route"),
             method: String::from("http.request.method"),
             status: String::from("http.response.status_code"),
-            version: None,
+            version: String::from("network.protocol.version"),
+            url_scheme: String::from("url.scheme"),
         }
     }
 }
@@ -464,7 +478,13 @@ impl LabelsConfig {
 
     /// set http version label
     pub fn version<T: Into<String>>(mut self, name: T) -> Self {
-        self.version = Some(name.into());
+        self.version = name.into();
+        self
+    }
+
+    /// set url.scheme label
+    pub fn url_scheme<T: Into<String>>(mut self, name: T) -> Self {
+        self.url_scheme = name.into();
         self
     }
 }
@@ -477,6 +497,7 @@ pub struct ActixWebMetricsConfig {
     http_server_request_duration_name: String,
     http_server_request_body_size_name: String,
     http_server_response_body_size_name: String,
+    http_server_active_requests_name: String,
     labels: LabelsConfig,
 }
 
@@ -486,6 +507,7 @@ impl Default for ActixWebMetricsConfig {
             http_server_request_duration_name: String::from("http.server.request.duration"),
             http_server_request_body_size_name: String::from("http.server.request.body.size"),
             http_server_response_body_size_name: String::from("http.server.response.body.size"),
+            http_server_active_requests_name: String::from("http.server.active_requests"),
             labels: LabelsConfig::default(),
         }
     }
@@ -515,6 +537,12 @@ impl ActixWebMetricsConfig {
         self.http_server_response_body_size_name = name.into();
         self
     }
+
+    /// Set name for `http.server.active_requests` metric
+    pub fn http_server_active_requests_name<T: Into<String>>(mut self, name: T) -> Self {
+        self.http_server_active_requests_name = name.into();
+        self
+    }
 }
 
 /// Static references to variable metrics/label names.
@@ -524,10 +552,12 @@ struct MetricsMetadata {
     http_requests_duration_seconds: &'static str,
     http_request_size_bytes: &'static str,
     http_response_size_bytes: &'static str,
-    endpoint: &'static str,
-    method: &'static str,
-    status: &'static str,
-    version: Option<&'static str>,
+    http_server_active_requests: &'static str,
+    http_route: &'static str,
+    http_request_method: &'static str,
+    http_response_status: &'static str,
+    http_version: &'static str,
+    url_scheme: &'static str,
     const_labels: Vec<(&'static str, String)>,
 }
 
@@ -544,32 +574,63 @@ struct MetricsMetadata {
 #[derive(Clone)]
 #[must_use = "must be set up as middleware for actix-web"]
 pub struct ActixWebMetrics {
+    inner: Arc<ActixWebMetricsInner>,
+}
+
+struct ActixWebMetricsInner {
     pub(crate) names: MetricsMetadata,
 
     pub(crate) exclude: HashSet<String>,
     pub(crate) exclude_regex: RegexSet,
     pub(crate) exclude_status: HashSet<StatusCode>,
-    pub(crate) enable_http_version_label: bool,
     pub(crate) unmatched_patterns_mask: Option<String>,
 }
 
 impl ActixWebMetrics {
+    fn pre_request_update_metrics(&self, req: &ServiceRequest) {
+        let this = &*self.inner;
+
+        let mut labels = Vec::with_capacity(2);
+        labels.push((
+            this.names.http_request_method,
+            req.method().as_str().to_string(),
+        ));
+        labels.push((this.names.url_scheme, url_scheme(&req.uri()).to_string()));
+
+        gauge!(this.names.http_server_active_requests, &labels).increment(1);
+    }
+
     #[allow(clippy::too_many_arguments)]
-    fn update_metrics(
+    fn post_request_update_metrics(
         &self,
         http_version: Version,
         mixed_pattern: &str,
         fallback_pattern: &str,
         method: &Method,
         status: StatusCode,
+        scheme: &str,
         clock: Instant,
         was_path_matched: bool,
         request_size: usize,
         response_size: usize,
     ) {
-        if self.exclude.contains(mixed_pattern)
-            || self.exclude_regex.is_match(mixed_pattern)
-            || self.exclude_status.contains(&status)
+        let this = &*self.inner;
+
+        // NOTE: active_requests cannot be skips as we need to decrement the increment we did that
+        // the beginning of the request.
+        let active_request_labels = vec![
+            (this.names.http_request_method, method.as_str().to_string()),
+            (this.names.url_scheme, scheme.to_string()),
+        ];
+        gauge!(
+            this.names.http_server_active_requests,
+            &active_request_labels
+        )
+        .decrement(1);
+
+        if this.exclude.contains(mixed_pattern)
+            || this.exclude_regex.is_match(mixed_pattern)
+            || this.exclude_status.contains(&status)
         {
             return;
         }
@@ -584,34 +645,32 @@ impl ActixWebMetrics {
 
         let final_pattern = if was_path_matched {
             final_pattern
-        } else if let Some(mask) = &self.unmatched_patterns_mask {
+        } else if let Some(mask) = &this.unmatched_patterns_mask {
             mask
         } else {
             final_pattern
         };
 
-        let mut labels = Vec::with_capacity(4 + self.names.const_labels.len());
-        labels.push((self.names.endpoint, final_pattern.to_string()));
-        labels.push((self.names.method, method.as_str().to_string()));
-        labels.push((self.names.status, status.as_str().to_string()));
+        let mut labels = Vec::with_capacity(4 + this.names.const_labels.len());
+        labels.push((this.names.http_route, final_pattern.to_string()));
+        labels.push((this.names.http_request_method, method.as_str().to_string()));
+        labels.push((this.names.http_response_status, status.as_str().to_string()));
 
-        if self.enable_http_version_label {
-            labels.push((
-                self.names.version.unwrap(),
-                Self::http_version_label(http_version).to_string(),
-            ));
-        }
+        labels.push((
+            this.names.http_version,
+            Self::http_version_label(http_version).to_string(),
+        ));
 
-        for (k, v) in &self.names.const_labels {
+        for (k, v) in &this.names.const_labels {
             labels.push((k, v.clone()));
         }
 
         let elapsed = clock.elapsed();
         let duration =
             (elapsed.as_secs() as f64) + f64::from(elapsed.subsec_nanos()) / 1_000_000_000_f64;
-        histogram!(self.names.http_requests_duration_seconds, &labels).record(duration);
-        histogram!(self.names.http_request_size_bytes, &labels).record(request_size as f64);
-        histogram!(self.names.http_response_size_bytes, &labels).record(response_size as f64);
+        histogram!(this.names.http_requests_duration_seconds, &labels).record(duration);
+        histogram!(this.names.http_request_size_bytes, &labels).record(request_size as f64);
+        histogram!(this.names.http_response_size_bytes, &labels).record(response_size as f64);
     }
 
     fn http_version_label(version: Version) -> &'static str {
@@ -639,7 +698,7 @@ where
     fn new_transform(&self, service: S) -> Self::Future {
         ready(Ok(MetricsMiddleware {
             service,
-            inner: Arc::new(self.clone()),
+            inner: self.clone(),
         }))
     }
 }
@@ -653,7 +712,7 @@ pin_project! {
         #[pin]
         fut: S::Future,
         time: Instant,
-        inner: Arc<ActixWebMetrics>,
+        inner: ActixWebMetrics,
         _t: PhantomData<()>,
     }
 }
@@ -721,6 +780,7 @@ where
             .and_then(|v| v.parse::<usize>().ok())
             .unwrap_or(0);
 
+        let scheme = url_scheme(&req.uri()).to_string();
         let inner = this.inner.clone();
         Poll::Ready(Ok(res.map_body(move |head, body| StreamLog {
             body,
@@ -729,6 +789,7 @@ where
             clock: time,
             inner,
             status: head.status,
+            scheme,
             mixed_pattern,
             fallback_pattern,
             method,
@@ -742,7 +803,7 @@ where
 #[doc(hidden)]
 pub struct MetricsMiddleware<S> {
     service: S,
-    inner: Arc<ActixWebMetrics>,
+    inner: ActixWebMetrics,
 }
 
 impl<S, B> Service<ServiceRequest> for MetricsMiddleware<S>
@@ -756,6 +817,8 @@ where
     dev::forward_ready!(service);
 
     fn call(&self, req: ServiceRequest) -> Self::Future {
+        self.inner.pre_request_update_metrics(&req);
+
         LoggerResponse {
             fut: self.service.call(req),
             time: Instant::now(),
@@ -773,8 +836,9 @@ pin_project! {
         response_size: usize,
         request_size: usize,
         clock: Instant,
-        inner: Arc<ActixWebMetrics>,
+        inner: ActixWebMetrics,
         status: StatusCode,
+        scheme: String,
         // a route pattern with some params not-filled and some params filled in by user-defined
         mixed_pattern: String,
         fallback_pattern: String,
@@ -788,7 +852,7 @@ pin_project! {
         fn drop(this: Pin<&mut Self>) {
             // update the metrics for this request at the very end of responding
             this.inner
-                .update_metrics(this.version, &this.mixed_pattern, &this.fallback_pattern, &this.method, this.status, this.clock, this.was_path_matched, this.request_size, this.response_size);
+                .post_request_update_metrics(this.version, &this.mixed_pattern, &this.fallback_pattern, &this.method, this.status, &this.scheme, this.clock, this.was_path_matched, this.request_size, this.response_size);
         }
     }
 }
@@ -814,4 +878,8 @@ impl<B: MessageBody> MessageBody for StreamLog<B> {
             None => Poll::Ready(None),
         }
     }
+}
+
+fn url_scheme(uri: &Uri) -> &str {
+    uri.scheme().map(|s| s.as_str()).unwrap_or("http")
 }
