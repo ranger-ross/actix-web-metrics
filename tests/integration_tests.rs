@@ -80,13 +80,22 @@ async fn middleware_http_version() {
 
     let prom_metrics = prometheus.render();
 
+    let otel_version = |version: &Version| match version {
+        &Version::HTTP_09 => "0.9",
+        &Version::HTTP_10 => "1.0",
+        &Version::HTTP_11 => "1.1",
+        &Version::HTTP_2 => "2",
+        &Version::HTTP_3 => "3",
+        _ => unreachable!(),
+    };
+
     for (http_version, repeats) in test_cases {
         let mut actual_value: Option<u32> = None;
         for line in prom_metrics.lines() {
             if !line.starts_with("http_server_request_duration_count") {
                 continue;
             }
-            if !line.contains(&format!("version=\"{http_version:?}\"")) {
+            if !line.contains(&format!("version=\"{}\"", otel_version(&http_version))) {
                 continue;
             }
 
