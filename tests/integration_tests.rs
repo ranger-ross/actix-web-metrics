@@ -401,11 +401,9 @@ async fn middleware_with_size_metrics() {
         .enable_response_size_metrics()
         .build();
 
-    let app = init_service(
-        App::new()
-            .wrap(prometheus)
-            .service(web::resource("/health_check").to(|| async { HttpResponse::Ok().body("test response") })),
-    )
+    let app = init_service(App::new().wrap(prometheus).service(
+        web::resource("/health_check").to(|| async { HttpResponse::Ok().body("test response") }),
+    ))
     .await;
 
     let res = call_service(&app, TestRequest::with_uri("/health_check").to_request()).await;
