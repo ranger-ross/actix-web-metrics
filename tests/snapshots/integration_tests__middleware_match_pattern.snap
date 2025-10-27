@@ -6,6 +6,35 @@ Snapshot(
     [
         (
             CompositeKey(
+                Gauge,
+                Key {
+                    name: KeyName(
+                        "http.server.active_requests",
+                    ),
+                    labels: [
+                        Label(
+                            "http.request.method",
+                            "GET",
+                        ),
+                        Label(
+                            "url.scheme",
+                            "http",
+                        ),
+                    ],
+                    hashed: true,
+                    hash: 1764143306982493858,
+                },
+            ),
+            None,
+            Some(
+                "Number of active HTTP server requests.",
+            ),
+            Gauge(
+                0.0,
+            ),
+        ),
+        (
+            CompositeKey(
                 Histogram,
                 Key {
                     name: KeyName(
@@ -24,9 +53,13 @@ Snapshot(
                             "http.response.status_code",
                             "200",
                         ),
+                        Label(
+                            "network.protocol.version",
+                            "HTTP/1.1",
+                        ),
                     ],
                     hashed: true,
-                    hash: 8387820821025311901,
+                    hash: 7626886901460482715,
                 },
             ),
             Some(
@@ -61,9 +94,13 @@ Snapshot(
                             "http.response.status_code",
                             "200",
                         ),
+                        Label(
+                            "network.protocol.version",
+                            "HTTP/1.1",
+                        ),
                     ],
                     hashed: true,
-                    hash: 17699972035774939912,
+                    hash: 8975417841123520154,
                 },
             ),
             Some(
@@ -98,9 +135,13 @@ Snapshot(
                             "http.response.status_code",
                             "200",
                         ),
+                        Label(
+                            "network.protocol.version",
+                            "HTTP/1.1",
+                        ),
                     ],
                     hashed: true,
-                    hash: 5645437327872220050,
+                    hash: 16267533380526830454,
                 },
             ),
             Some(

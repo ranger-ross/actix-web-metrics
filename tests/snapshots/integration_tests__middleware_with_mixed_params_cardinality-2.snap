@@ -6,6 +6,35 @@ Snapshot(
     [
         (
             CompositeKey(
+                Gauge,
+                Key {
+                    name: KeyName(
+                        "http.server.active_requests",
+                    ),
+                    labels: [
+                        Label(
+                            "http.request.method",
+                            "GET",
+                        ),
+                        Label(
+                            "url.scheme",
+                            "http",
+                        ),
+                    ],
+                    hashed: true,
+                    hash: 1764143306982493858,
+                },
+            ),
+            None,
+            Some(
+                "Number of active HTTP server requests.",
+            ),
+            Gauge(
+                0.0,
+            ),
+        ),
+        (
+            CompositeKey(
                 Histogram,
                 Key {
                     name: KeyName(
@@ -24,9 +53,13 @@ Snapshot(
                             "http.response.status_code",
                             "200",
                         ),
+                        Label(
+                            "network.protocol.version",
+                            "HTTP/1.1",
+                        ),
                     ],
                     hashed: true,
-                    hash: 10885268214897628938,
+                    hash: 4456677003677157170,
                 },
             ),
             Some(
@@ -59,9 +92,13 @@ Snapshot(
                             "http.response.status_code",
                             "200",
                         ),
+                        Label(
+                            "network.protocol.version",
+                            "HTTP/1.1",
+                        ),
                     ],
                     hashed: true,
-                    hash: 4178499132880962321,
+                    hash: 793939324985072233,
                 },
             ),
             Some(
@@ -94,9 +131,13 @@ Snapshot(
                             "http.response.status_code",
                             "200",
                         ),
+                        Label(
+                            "network.protocol.version",
+                            "HTTP/1.1",
+                        ),
                     ],
                     hashed: true,
-                    hash: 15749439550269524233,
+                    hash: 6603834079699411526,
                 },
             ),
             Some(
@@ -129,9 +170,13 @@ Snapshot(
                             "http.response.status_code",
                             "404",
                         ),
+                        Label(
+                            "network.protocol.version",
+                            "HTTP/1.1",
+                        ),
                     ],
                     hashed: true,
-                    hash: 12357216728847906674,
+                    hash: 8595920269553803119,
                 },
             ),
             Some(
@@ -166,9 +211,13 @@ Snapshot(
                             "http.response.status_code",
                             "404",
                         ),
+                        Label(
+                            "network.protocol.version",
+                            "HTTP/1.1",
+                        ),
                     ],
                     hashed: true,
-                    hash: 12528997286800467174,
+                    hash: 1281383842019352288,
                 },
             ),
             Some(
@@ -203,9 +252,13 @@ Snapshot(
                             "http.response.status_code",
                             "404",
                         ),
+                        Label(
+                            "network.protocol.version",
+                            "HTTP/1.1",
+                        ),
                     ],
                     hashed: true,
-                    hash: 1596950725122591099,
+                    hash: 8581359603361199868,
                 },
             ),
             Some(
