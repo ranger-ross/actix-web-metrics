@@ -6,6 +6,7 @@ This crate tries to adhere to [OpenTelemetry Semantic Conventions](https://opent
 The following metrics are supported:
 
   - [`http.server.request.duration`](https://opentelemetry.io/docs/specs/semconv/http/http-metrics/#metric-httpserverrequestduration)
+  - [`http.server.active_requests`](https://opentelemetry.io/docs/specs/semconv/http/http-metrics/#metric-httpserveractive_requests)
   - [`http.server.request.body.size`](https://opentelemetry.io/docs/specs/semconv/http/http-metrics/#metric-httpserverrequestbodysize)
   - [`http.server.response.body.size`](https://opentelemetry.io/docs/specs/semconv/http/http-metrics/#metric-httpserverresponsebodysize)
 
@@ -410,13 +411,13 @@ impl ActixWebMetricsBuilder {
                 exclude_status: self.exclude_status,
                 unmatched_patterns_mask: self.unmatched_patterns_mask,
                 names: MetricsMetadata {
-                    http_requests_duration_seconds: Box::leak(Box::new(
+                    http_server_request_duration: Box::leak(Box::new(
                         http_server_request_duration_name,
                     )),
-                    http_request_size_bytes: Box::leak(Box::new(
+                    http_server_request_body_size: Box::leak(Box::new(
                         http_server_request_body_size_name,
                     )),
-                    http_response_size_bytes: Box::leak(Box::new(
+                    http_server_response_body_size: Box::leak(Box::new(
                         http_server_response_body_size_name,
                     )),
                     http_server_active_requests: Box::leak(Box::new(
@@ -572,9 +573,9 @@ impl ActixWebMetricsConfig {
 #[derive(Debug, Clone)]
 struct MetricsMetadata {
     // metric names
-    http_requests_duration_seconds: &'static str,
-    http_request_size_bytes: &'static str,
-    http_response_size_bytes: &'static str,
+    http_server_request_duration: &'static str,
+    http_server_request_body_size: &'static str,
+    http_server_response_body_size: &'static str,
     http_server_active_requests: &'static str,
     // label names
     http_route: &'static str,
@@ -586,16 +587,9 @@ struct MetricsMetadata {
     const_labels: Vec<(&'static str, String)>,
 }
 
-/// By default two metrics are tracked:
+/// An actix-web middleware the records metrics.
 ///
-/// - `http_requests_duration_seconds` (labels: endpoint, method, status):
-///   the request duration for all HTTP requests handled by the actix `HttpServer`.
-///
-/// - `http_request_size_bytes` (labels: endpoint, method, status): the size of
-///   HTTP requests in bytes
-///
-/// - `http_response_size_bytes` (labels: endpoint, method, status): the size of
-///   HTTP responses in bytes
+/// See the module documentation for more details
 #[derive(Clone)]
 #[must_use = "must be set up as middleware for actix-web"]
 pub struct ActixWebMetrics {
@@ -707,9 +701,9 @@ impl ActixWebMetrics {
         let elapsed = clock.elapsed();
         let duration =
             (elapsed.as_secs() as f64) + f64::from(elapsed.subsec_nanos()) / 1_000_000_000_f64;
-        histogram!(this.names.http_requests_duration_seconds, &labels).record(duration);
-        histogram!(this.names.http_request_size_bytes, &labels).record(request_size as f64);
-        histogram!(this.names.http_response_size_bytes, &labels).record(response_size as f64);
+        histogram!(this.names.http_server_request_duration, &labels).record(duration);
+        histogram!(this.names.http_server_request_body_size, &labels).record(request_size as f64);
+        histogram!(this.names.http_server_response_body_size, &labels).record(response_size as f64);
     }
 
     fn http_version_label(version: Version) -> Option<&'static str> {
