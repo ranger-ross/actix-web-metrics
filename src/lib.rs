@@ -417,10 +417,19 @@ impl ActixWebMetricsBuilder {
                     http_server_active_requests: Box::leak(Box::new(
                         http_server_active_requests_name,
                     )),
-                    http_route: Box::leak(Box::new(self.metrics_config.labels.route)),
-                    http_request_method: Box::leak(Box::new(self.metrics_config.labels.method)),
-                    http_response_status: Box::leak(Box::new(self.metrics_config.labels.status)),
-                    http_version: Box::leak(Box::new(self.metrics_config.labels.version)),
+                    http_route: Box::leak(Box::new(self.metrics_config.labels.http_route)),
+                    http_request_method: Box::leak(Box::new(
+                        self.metrics_config.labels.http_request_method,
+                    )),
+                    http_response_status_code: Box::leak(Box::new(
+                        self.metrics_config.labels.http_response_status_code,
+                    )),
+                    network_protocol_name: Box::leak(Box::new(
+                        self.metrics_config.labels.network_protocol_name,
+                    )),
+                    network_protocol_version: Box::leak(Box::new(
+                        self.metrics_config.labels.network_protocol_version,
+                    )),
                     url_scheme: Box::leak(Box::new(self.metrics_config.labels.url_scheme)),
                     const_labels,
                 },
@@ -438,20 +447,22 @@ impl Default for ActixWebMetricsBuilder {
 /// Configuration for the labels used in metrics
 #[derive(Debug, Clone)]
 pub struct LabelsConfig {
-    route: String,
-    method: String,
-    status: String,
-    version: String,
+    http_route: String,
+    http_request_method: String,
+    http_response_status_code: String,
+    network_protocol_name: String,
+    network_protocol_version: String,
     url_scheme: String,
 }
 
 impl Default for LabelsConfig {
     fn default() -> Self {
         Self {
-            route: String::from("http.route"),
-            method: String::from("http.request.method"),
-            status: String::from("http.response.status_code"),
-            version: String::from("network.protocol.version"),
+            http_route: String::from("http.route"),
+            http_request_method: String::from("http.request.method"),
+            http_response_status_code: String::from("http.response.status_code"),
+            network_protocol_name: String::from("network.protocol.name"),
+            network_protocol_version: String::from("network.protocol.version"),
             url_scheme: String::from("url.scheme"),
         }
     }
@@ -459,30 +470,36 @@ impl Default for LabelsConfig {
 
 impl LabelsConfig {
     /// set http method label
-    pub fn method<T: Into<String>>(mut self, name: T) -> Self {
-        self.method = name.into();
+    pub fn http_request_method<T: Into<String>>(mut self, name: T) -> Self {
+        self.http_request_method = name.into();
         self
     }
 
     /// set http route label
-    pub fn route<T: Into<String>>(mut self, name: T) -> Self {
-        self.route = name.into();
+    pub fn http_route<T: Into<String>>(mut self, name: T) -> Self {
+        self.http_route = name.into();
         self
     }
 
     /// set http status label
-    pub fn status<T: Into<String>>(mut self, name: T) -> Self {
-        self.status = name.into();
+    pub fn http_response_status_code<T: Into<String>>(mut self, name: T) -> Self {
+        self.http_response_status_code = name.into();
         self
     }
 
-    /// set http version label
-    pub fn version<T: Into<String>>(mut self, name: T) -> Self {
-        self.version = name.into();
+    /// set network protocol name label
+    pub fn network_protocol_name<T: Into<String>>(mut self, name: T) -> Self {
+        self.network_protocol_name = name.into();
         self
     }
 
-    /// set url.scheme label
+    /// set network protocol version label
+    pub fn network_protocol_version<T: Into<String>>(mut self, name: T) -> Self {
+        self.network_protocol_version = name.into();
+        self
+    }
+
+    /// set url scheme label
     pub fn url_scheme<T: Into<String>>(mut self, name: T) -> Self {
         self.url_scheme = name.into();
         self
@@ -555,8 +572,9 @@ struct MetricsMetadata {
     http_server_active_requests: &'static str,
     http_route: &'static str,
     http_request_method: &'static str,
-    http_response_status: &'static str,
-    http_version: &'static str,
+    http_response_status_code: &'static str,
+    network_protocol_name: &'static str,
+    network_protocol_version: &'static str,
     url_scheme: &'static str,
     const_labels: Vec<(&'static str, String)>,
 }
@@ -590,12 +608,15 @@ impl ActixWebMetrics {
     fn pre_request_update_metrics(&self, req: &ServiceRequest) {
         let this = &*self.inner;
 
-        let mut labels = Vec::with_capacity(2);
+        let mut labels = Vec::with_capacity(2 + this.names.const_labels.len());
         labels.push((
             this.names.http_request_method,
             req.method().as_str().to_string(),
         ));
         labels.push((this.names.url_scheme, url_scheme(&req.uri()).to_string()));
+        for (k, v) in &this.names.const_labels {
+            labels.push((k, v.clone()));
+        }
 
         gauge!(this.names.http_server_active_requests, &labels).increment(1);
     }
@@ -618,15 +639,20 @@ impl ActixWebMetrics {
 
         // NOTE: active_requests cannot be skips as we need to decrement the increment we did that
         // the beginning of the request.
-        let active_request_labels = vec![
-            (this.names.http_request_method, method.as_str().to_string()),
-            (this.names.url_scheme, scheme.to_string()),
-        ];
-        gauge!(
-            this.names.http_server_active_requests,
-            &active_request_labels
-        )
-        .decrement(1);
+        {
+            let mut active_request_labels = Vec::with_capacity(2 + this.names.const_labels.len());
+            active_request_labels
+                .push((this.names.http_request_method, method.as_str().to_string()));
+            active_request_labels.push((this.names.url_scheme, scheme.to_string()));
+            for (k, v) in &this.names.const_labels {
+                active_request_labels.push((k, v.clone()));
+            }
+            gauge!(
+                this.names.http_server_active_requests,
+                &active_request_labels
+            )
+            .decrement(1);
+        }
 
         if this.exclude.contains(mixed_pattern)
             || this.exclude_regex.is_match(mixed_pattern)
@@ -651,15 +677,21 @@ impl ActixWebMetrics {
             final_pattern
         };
 
-        let mut labels = Vec::with_capacity(4 + this.names.const_labels.len());
+        let mut labels = Vec::with_capacity(5 + this.names.const_labels.len());
         labels.push((this.names.http_route, final_pattern.to_string()));
         labels.push((this.names.http_request_method, method.as_str().to_string()));
-        labels.push((this.names.http_response_status, status.as_str().to_string()));
-
         labels.push((
-            this.names.http_version,
-            Self::http_version_label(http_version).to_string(),
+            this.names.http_response_status_code,
+            status.as_str().to_string(),
         ));
+        labels.push((this.names.network_protocol_name, "http".to_string()));
+
+        if let Some(http_version) = Self::http_version_label(http_version) {
+            labels.push((
+                this.names.network_protocol_version,
+                http_version.to_string(),
+            ));
+        }
 
         for (k, v) in &this.names.const_labels {
             labels.push((k, v.clone()));
@@ -673,15 +705,17 @@ impl ActixWebMetrics {
         histogram!(this.names.http_response_size_bytes, &labels).record(response_size as f64);
     }
 
-    fn http_version_label(version: Version) -> &'static str {
-        match version {
-            v if v == Version::HTTP_09 => "HTTP/0.9",
-            v if v == Version::HTTP_10 => "HTTP/1.0",
-            v if v == Version::HTTP_11 => "HTTP/1.1",
-            v if v == Version::HTTP_2 => "HTTP/2.0",
-            v if v == Version::HTTP_3 => "HTTP/3.0",
-            _ => "<unrecognized>",
-        }
+    fn http_version_label(version: Version) -> Option<&'static str> {
+        let v = match version {
+            v if v == Version::HTTP_09 => "0.9",
+            v if v == Version::HTTP_10 => "1.0",
+            v if v == Version::HTTP_11 => "1.1",
+            v if v == Version::HTTP_2 => "2",
+            v if v == Version::HTTP_3 => "3",
+            _ => return None,
+        };
+
+        Some(v)
     }
 }
 
