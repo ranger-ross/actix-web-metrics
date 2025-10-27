@@ -9,7 +9,7 @@ Snapshot(
                 Histogram,
                 Key {
                     name: KeyName(
-                        "http_requests_duration",
+                        "http.server.request.duration",
                     ),
                     labels: [
                         Label(
@@ -26,7 +26,7 @@ Snapshot(
                         ),
                     ],
                     hashed: true,
-                    hash: 4683992585520447593,
+                    hash: 4568020080277210371,
                 },
             ),
             Some(
@@ -46,7 +46,7 @@ Snapshot(
                 Counter,
                 Key {
                     name: KeyName(
-                        "http_requests_total",
+                        "http.requests.total",
                     ),
                     labels: [
                         Label(
@@ -63,7 +63,7 @@ Snapshot(
                         ),
                     ],
                     hashed: true,
-                    hash: 3220206923332757627,
+                    hash: 789248319690464860,
                 },
             ),
             None,
@@ -79,7 +79,7 @@ Snapshot(
                 Histogram,
                 Key {
                     name: KeyName(
-                        "http_request_size",
+                        "http.server.request.body.size",
                     ),
                     labels: [
                         Label(
@@ -96,7 +96,7 @@ Snapshot(
                         ),
                     ],
                     hashed: true,
-                    hash: 4317199347527505797,
+                    hash: 2007136165616021377,
                 },
             ),
             Some(
@@ -116,7 +116,7 @@ Snapshot(
                 Histogram,
                 Key {
                     name: KeyName(
-                        "http_response_size",
+                        "http.server.response.body.size",
                     ),
                     labels: [
                         Label(
@@ -133,7 +133,7 @@ Snapshot(
                         ),
                     ],
                     hashed: true,
-                    hash: 5170175450852361176,
+                    hash: 12066213246522278237,
                 },
             ),
             Some(

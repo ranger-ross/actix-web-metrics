@@ -13,7 +13,7 @@ async fn main() -> std::io::Result<()> {
     let metrics = ActixWebMetricsBuilder::new()
         .metrics_config(
             ActixWebMetricsConfig::default()
-                .http_requests_duration_seconds_name("my_http_request_duration"),
+                .http_server_request_duration_name("my_http_request_duration"),
         )
         .build();
 

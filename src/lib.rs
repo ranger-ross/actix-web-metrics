@@ -332,12 +332,12 @@ impl ActixWebMetricsBuilder {
             "".to_string()
         };
 
-        let http_requests_duration_seconds_name = format!(
+        let http_server_request_duration_name = format!(
             "{namespace_prefix}{}",
-            self.metrics_config.http_requests_duration_seconds_name
+            self.metrics_config.http_server_request_duration_name
         );
         describe_histogram!(
-            http_requests_duration_seconds_name.clone(),
+            http_server_request_duration_name.clone(),
             Unit::Seconds,
             "HTTP request duration in seconds for all requests"
         );
@@ -350,22 +350,22 @@ impl ActixWebMetricsBuilder {
             "Total number of HTTP requests"
         );
 
-        let http_request_size_bytes_name = format!(
+        let http_server_request_body_size_name = format!(
             "{namespace_prefix}{}",
-            self.metrics_config.http_request_size_bytes_name
+            self.metrics_config.http_server_request_body_size_name
         );
         describe_histogram!(
-            http_request_size_bytes_name.clone(),
+            http_server_request_body_size_name.clone(),
             Unit::Bytes,
             "HTTP request size in bytes for all requests"
         );
 
-        let http_response_size_bytes_name = format!(
+        let http_server_response_body_size_name = format!(
             "{namespace_prefix}{}",
-            self.metrics_config.http_response_size_bytes_name
+            self.metrics_config.http_server_response_body_size_name
         );
         describe_histogram!(
-            http_response_size_bytes_name.clone(),
+            http_server_response_body_size_name.clone(),
             Unit::Bytes,
             "HTTP response size in bytes for all requests"
         );
@@ -396,10 +396,10 @@ impl ActixWebMetricsBuilder {
             names: MetricsMetadata {
                 http_requests_total: Box::leak(Box::new(http_requests_total_name)),
                 http_requests_duration_seconds: Box::leak(Box::new(
-                    http_requests_duration_seconds_name,
+                    http_server_request_duration_name,
                 )),
-                http_request_size_bytes: Box::leak(Box::new(http_request_size_bytes_name)),
-                http_response_size_bytes: Box::leak(Box::new(http_response_size_bytes_name)),
+                http_request_size_bytes: Box::leak(Box::new(http_server_request_body_size_name)),
+                http_response_size_bytes: Box::leak(Box::new(http_server_response_body_size_name)),
                 endpoint: Box::leak(Box::new(self.metrics_config.labels.endpoint)),
                 method: Box::leak(Box::new(self.metrics_config.labels.method)),
                 status: Box::leak(Box::new(self.metrics_config.labels.status)),
@@ -468,19 +468,19 @@ impl LabelsConfig {
 #[derive(Debug, Clone)]
 pub struct ActixWebMetricsConfig {
     http_requests_total_name: String,
-    http_requests_duration_seconds_name: String,
-    http_request_size_bytes_name: String,
-    http_response_size_bytes_name: String,
+    http_server_request_duration_name: String,
+    http_server_request_body_size_name: String,
+    http_server_response_body_size_name: String,
     labels: LabelsConfig,
 }
 
 impl Default for ActixWebMetricsConfig {
     fn default() -> Self {
         Self {
-            http_requests_total_name: String::from("http_requests_total"),
-            http_requests_duration_seconds_name: String::from("http_requests_duration"),
-            http_request_size_bytes_name: String::from("http_request_size"),
-            http_response_size_bytes_name: String::from("http_response_size"),
+            http_requests_total_name: String::from("http.requests.total"),
+            http_server_request_duration_name: String::from("http.server.request.duration"),
+            http_server_request_body_size_name: String::from("http.server.request.body.size"),
+            http_server_response_body_size_name: String::from("http.server.response.body.size"),
             labels: LabelsConfig::default(),
         }
     }
@@ -493,27 +493,27 @@ impl ActixWebMetricsConfig {
         self
     }
 
-    /// Set name for `http_requests_total` metric
+    /// Set name for `http.requests.total` metric
     pub fn http_requests_total_name<T: Into<String>>(mut self, name: T) -> Self {
         self.http_requests_total_name = name.into();
         self
     }
 
-    /// Set name for `http_requests_duration_seconds` metric
-    pub fn http_requests_duration_seconds_name<T: Into<String>>(mut self, name: T) -> Self {
-        self.http_requests_duration_seconds_name = name.into();
+    /// Set name for `http.server.request.duration` metric
+    pub fn http_server_request_duration_name<T: Into<String>>(mut self, name: T) -> Self {
+        self.http_server_request_duration_name = name.into();
         self
     }
 
-    /// Set name for `http_request_size_bytes` metric
-    pub fn http_request_size_bytes_name<T: Into<String>>(mut self, name: T) -> Self {
-        self.http_request_size_bytes_name = name.into();
+    /// Set name for `http.server.request.body.size` metric
+    pub fn http_server_request_body_size_name<T: Into<String>>(mut self, name: T) -> Self {
+        self.http_server_request_body_size_name = name.into();
         self
     }
 
-    /// Set name for `http_response_size_bytes` metric
-    pub fn http_response_size_bytes_name<T: Into<String>>(mut self, name: T) -> Self {
-        self.http_response_size_bytes_name = name.into();
+    /// Set name for `http.server.response.body.size` metric
+    pub fn http_server_response_body_size_name<T: Into<String>>(mut self, name: T) -> Self {
+        self.http_server_response_body_size_name = name.into();
         self
     }
 }
