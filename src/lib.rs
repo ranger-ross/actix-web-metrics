@@ -3,9 +3,6 @@
 
 By default two metrics are tracked:
 
-  - `http_requests_total` (labels: endpoint, method, status): the total number
-    of HTTP requests handled by the actix HttpServer.
-
   - `http_requests_duration_seconds` (labels: endpoint, method, status): the
     request duration for all HTTP requests handled by the actix HttpServer.
 
@@ -72,21 +69,42 @@ A call to the `localhost:9000/metrics` endpoint will expose your metrics:
 
 ```shell
 $ curl http://localhost:9000/metrics
-# HELP http_requests_total Total number of HTTP requests
-# TYPE http_requests_total counter
-http_requests_total{endpoint="/health",method="GET",status="200",label1="value1"} 1
 
-# HELP http_requests_duration_seconds HTTP request duration in seconds for all requests
-# TYPE http_requests_duration_seconds summary
-http_requests_duration_seconds{endpoint="/health",method="GET",status="200",label1="value1",quantile="0"} 0.000302807
-http_requests_duration_seconds{endpoint="/health",method="GET",status="200",label1="value1",quantile="0.5"} 0.00030278122831198045
-http_requests_duration_seconds{endpoint="/health",method="GET",status="200",label1="value1",quantile="0.9"} 0.00030278122831198045
-http_requests_duration_seconds{endpoint="/health",method="GET",status="200",label1="value1",quantile="0.95"} 0.00030278122831198045
-http_requests_duration_seconds{endpoint="/health",method="GET",status="200",label1="value1",quantile="0.99"} 0.00030278122831198045
-http_requests_duration_seconds{endpoint="/health",method="GET",status="200",label1="value1",quantile="0.999"} 0.00030278122831198045
-http_requests_duration_seconds{endpoint="/health",method="GET",status="200",label1="value1",quantile="1"} 0.000302807
-http_requests_duration_seconds_sum{endpoint="/health",method="GET",status="200",label1="value1"} 0.000302807
-http_requests_duration_seconds_count{endpoint="/health",method="GET",status="200",label1="value1"} 1
+# HELP http_server_request_duration HTTP request duration in seconds for all requests
+# TYPE http_server_request_duration summary
+http_server_request_duration{endpoint="/health",method="GET",status="200",quantile="0"} 0.000174894
+http_server_request_duration{endpoint="/health",method="GET",status="200",quantile="0.5"} 0.0001748993252549502
+http_server_request_duration{endpoint="/health",method="GET",status="200",quantile="0.9"} 0.0001748993252549502
+http_server_request_duration{endpoint="/health",method="GET",status="200",quantile="0.95"} 0.0001748993252549502
+http_server_request_duration{endpoint="/health",method="GET",status="200",quantile="0.99"} 0.0001748993252549502
+http_server_request_duration{endpoint="/health",method="GET",status="200",quantile="0.999"} 0.0001748993252549502
+http_server_request_duration{endpoint="/health",method="GET",status="200",quantile="1"} 0.000174894
+http_server_request_duration_sum{endpoint="/health",method="GET",status="200"} 0.000174894
+http_server_request_duration_count{endpoint="/health",method="GET",status="200"} 1
+
+# HELP http_server_request_body_size HTTP request size in bytes for all requests
+# TYPE http_server_request_body_size summary
+http_server_request_body_size{endpoint="/health",method="GET",status="200",quantile="0"} 0
+http_server_request_body_size{endpoint="/health",method="GET",status="200",quantile="0.5"} 0
+http_server_request_body_size{endpoint="/health",method="GET",status="200",quantile="0.9"} 0
+http_server_request_body_size{endpoint="/health",method="GET",status="200",quantile="0.95"} 0
+http_server_request_body_size{endpoint="/health",method="GET",status="200",quantile="0.99"} 0
+http_server_request_body_size{endpoint="/health",method="GET",status="200",quantile="0.999"} 0
+http_server_request_body_size{endpoint="/health",method="GET",status="200",quantile="1"} 0
+http_server_request_body_size_sum{endpoint="/health",method="GET",status="200"} 0
+http_server_request_body_size_count{endpoint="/health",method="GET",status="200"} 1
+
+# HELP http_server_response_body_size HTTP response size in bytes for all requests
+# TYPE http_server_response_body_size summary
+http_server_response_body_size{endpoint="/health",method="GET",status="200",quantile="0"} 0
+http_server_response_body_size{endpoint="/health",method="GET",status="200",quantile="0.5"} 0
+http_server_response_body_size{endpoint="/health",method="GET",status="200",quantile="0.9"} 0
+http_server_response_body_size{endpoint="/health",method="GET",status="200",quantile="0.95"} 0
+http_server_response_body_size{endpoint="/health",method="GET",status="200",quantile="0.99"} 0
+http_server_response_body_size{endpoint="/health",method="GET",status="200",quantile="0.999"} 0
+http_server_response_body_size{endpoint="/health",method="GET",status="200",quantile="1"} 0
+http_server_response_body_size_sum{endpoint="/health",method="GET",status="200"} 0
+http_server_response_body_size_count{endpoint="/health",method="GET",status="200"} 1
 ```
 
 NOTE: There are 2 important things to note:
@@ -211,7 +229,7 @@ http_requests_duration_seconds_sum{endpoint="UNMATCHED",method="GET",status="400
 #![deny(missing_docs)]
 
 use log::warn;
-use metrics::{counter, describe_counter, describe_histogram, histogram, Unit};
+use metrics::{describe_histogram, histogram, Unit};
 use std::collections::{HashMap, HashSet};
 use std::future::{ready, Future, Ready};
 use std::marker::PhantomData;
@@ -341,14 +359,6 @@ impl ActixWebMetricsBuilder {
             Unit::Seconds,
             "HTTP request duration in seconds for all requests"
         );
-        let http_requests_total_name = format!(
-            "{namespace_prefix}{}",
-            self.metrics_config.http_requests_total_name
-        );
-        describe_counter!(
-            http_requests_total_name.clone(),
-            "Total number of HTTP requests"
-        );
 
         let http_server_request_body_size_name = format!(
             "{namespace_prefix}{}",
@@ -394,7 +404,6 @@ impl ActixWebMetricsBuilder {
             enable_http_version_label: self.metrics_config.labels.version.is_some(),
             unmatched_patterns_mask: self.unmatched_patterns_mask,
             names: MetricsMetadata {
-                http_requests_total: Box::leak(Box::new(http_requests_total_name)),
                 http_requests_duration_seconds: Box::leak(Box::new(
                     http_server_request_duration_name,
                 )),
@@ -467,7 +476,6 @@ impl LabelsConfig {
 /// Stores individual metric configuration objects
 #[derive(Debug, Clone)]
 pub struct ActixWebMetricsConfig {
-    http_requests_total_name: String,
     http_server_request_duration_name: String,
     http_server_request_body_size_name: String,
     http_server_response_body_size_name: String,
@@ -477,7 +485,6 @@ pub struct ActixWebMetricsConfig {
 impl Default for ActixWebMetricsConfig {
     fn default() -> Self {
         Self {
-            http_requests_total_name: String::from("http.requests.total"),
             http_server_request_duration_name: String::from("http.server.request.duration"),
             http_server_request_body_size_name: String::from("http.server.request.body.size"),
             http_server_response_body_size_name: String::from("http.server.response.body.size"),
@@ -490,12 +497,6 @@ impl ActixWebMetricsConfig {
     /// Set the labels collected for the metrics
     pub fn labels(mut self, labels: LabelsConfig) -> Self {
         self.labels = labels;
-        self
-    }
-
-    /// Set name for `http.requests.total` metric
-    pub fn http_requests_total_name<T: Into<String>>(mut self, name: T) -> Self {
-        self.http_requests_total_name = name.into();
         self
     }
 
@@ -522,7 +523,6 @@ impl ActixWebMetricsConfig {
 /// This config primarily exists to avoid allocations during execution.
 #[derive(Debug, Clone)]
 struct MetricsMetadata {
-    http_requests_total: &'static str,
     http_requests_duration_seconds: &'static str,
     http_request_size_bytes: &'static str,
     http_response_size_bytes: &'static str,
@@ -534,9 +534,6 @@ struct MetricsMetadata {
 }
 
 /// By default two metrics are tracked:
-///
-/// - `http_requests_total` (labels: endpoint, method, status): the total
-///   number of HTTP requests handled by the actix `HttpServer`.
 ///
 /// - `http_requests_duration_seconds` (labels: endpoint, method, status):
 ///   the request duration for all HTTP requests handled by the actix `HttpServer`.
@@ -615,9 +612,6 @@ impl ActixWebMetrics {
         let duration =
             (elapsed.as_secs() as f64) + f64::from(elapsed.subsec_nanos()) / 1_000_000_000_f64;
         histogram!(self.names.http_requests_duration_seconds, &labels).record(duration);
-
-        counter!(self.names.http_requests_total, &labels).increment(1);
-
         histogram!(self.names.http_request_size_bytes, &labels).record(request_size as f64);
         histogram!(self.names.http_response_size_bytes, &labels).record(response_size as f64);
     }
