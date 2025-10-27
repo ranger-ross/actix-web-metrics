@@ -7,13 +7,13 @@
 
 [Metrics.rs](https://metrics.rs) integration for [actix-web](https://github.com/actix/actix-web).
 
-By default two metrics are tracked:
+This crate tries to adhere to [OpenTelemetry Semantic Conventions](https://opentelemetry.io/docs/specs/semconv/http/http-metrics/)
 
-  - `http_requests_total` (labels: endpoint, method, status): the total number
-    of HTTP requests handled by the actix HttpServer.
+The following metrics are supported:
 
-  - `http_requests_duration_seconds` (labels: endpoint, method, status): the
-    request duration for all HTTP requests handled by the actix HttpServer.
+  - [`http.server.request.duration`](https://opentelemetry.io/docs/specs/semconv/http/http-metrics/#metric-httpserverrequestduration)
+  - [`http.server.request.body.size`](https://opentelemetry.io/docs/specs/semconv/http/http-metrics/#metric-httpserverrequestbodysize)
+  - [`http.server.response.body.size`](https://opentelemetry.io/docs/specs/semconv/http/http-metrics/#metric-httpserverresponsebodysize)
 
 
 # Usage
@@ -68,21 +68,42 @@ A call to the `localhost:9000/metrics` endpoint will expose your metrics:
 
 ```shell
 $ curl http://localhost:9000/metrics
-# HELP http_requests_total Total number of HTTP requests
-# TYPE http_requests_total counter
-http_requests_total{endpoint="/health",method="GET",status="200",label1="value1"} 1
 
-# HELP http_requests_duration_seconds HTTP request duration in seconds for all requests
-# TYPE http_requests_duration_seconds summary
-http_requests_duration_seconds{endpoint="/health",method="GET",status="200",label1="value1",quantile="0"} 0.000302807
-http_requests_duration_seconds{endpoint="/health",method="GET",status="200",label1="value1",quantile="0.5"} 0.00030278122831198045
-http_requests_duration_seconds{endpoint="/health",method="GET",status="200",label1="value1",quantile="0.9"} 0.00030278122831198045
-http_requests_duration_seconds{endpoint="/health",method="GET",status="200",label1="value1",quantile="0.95"} 0.00030278122831198045
-http_requests_duration_seconds{endpoint="/health",method="GET",status="200",label1="value1",quantile="0.99"} 0.00030278122831198045
-http_requests_duration_seconds{endpoint="/health",method="GET",status="200",label1="value1",quantile="0.999"} 0.00030278122831198045
-http_requests_duration_seconds{endpoint="/health",method="GET",status="200",label1="value1",quantile="1"} 0.000302807
-http_requests_duration_seconds_sum{endpoint="/health",method="GET",status="200",label1="value1"} 0.000302807
-http_requests_duration_seconds_count{endpoint="/health",method="GET",status="200",label1="value1"} 1
+# HELP http_server_request_duration HTTP request duration in seconds for all requests
+# TYPE http_server_request_duration summary
+http_server_request_duration{http_route="/health",http_request_method="GET",http_response_status_code="200",quantile="0"} 0.000457019
+http_server_request_duration{http_route="/health",http_request_method="GET",http_response_status_code="200",quantile="0.5"} 0.0004570581050440776
+http_server_request_duration{http_route="/health",http_request_method="GET",http_response_status_code="200",quantile="0.9"} 0.0004570581050440776
+http_server_request_duration{http_route="/health",http_request_method="GET",http_response_status_code="200",quantile="0.95"} 0.0004570581050440776
+http_server_request_duration{http_route="/health",http_request_method="GET",http_response_status_code="200",quantile="0.99"} 0.0004570581050440776
+http_server_request_duration{http_route="/health",http_request_method="GET",http_response_status_code="200",quantile="0.999"} 0.0004570581050440776
+http_server_request_duration{http_route="/health",http_request_method="GET",http_response_status_code="200",quantile="1"} 0.000457019
+http_server_request_duration_sum{http_route="/health",http_request_method="GET",http_response_status_code="200"} 0.000457019
+http_server_request_duration_count{http_route="/health",http_request_method="GET",http_response_status_code="200"} 1
+
+# HELP http_server_request_body_size HTTP request size in bytes for all requests
+# TYPE http_server_request_body_size summary
+http_server_request_body_size{http_route="/health",http_request_method="GET",http_response_status_code="200",quantile="0"} 0
+http_server_request_body_size{http_route="/health",http_request_method="GET",http_response_status_code="200",quantile="0.5"} 0
+http_server_request_body_size{http_route="/health",http_request_method="GET",http_response_status_code="200",quantile="0.9"} 0
+http_server_request_body_size{http_route="/health",http_request_method="GET",http_response_status_code="200",quantile="0.95"} 0
+http_server_request_body_size{http_route="/health",http_request_method="GET",http_response_status_code="200",quantile="0.99"} 0
+http_server_request_body_size{http_route="/health",http_request_method="GET",http_response_status_code="200",quantile="0.999"} 0
+http_server_request_body_size{http_route="/health",http_request_method="GET",http_response_status_code="200",quantile="1"} 0
+http_server_request_body_size_sum{http_route="/health",http_request_method="GET",http_response_status_code="200"} 0
+http_server_request_body_size_count{http_route="/health",http_request_method="GET",http_response_status_code="200"} 1
+
+# HELP http_server_response_body_size HTTP response size in bytes for all requests
+# TYPE http_server_response_body_size summary
+http_server_response_body_size{http_route="/health",http_request_method="GET",http_response_status_code="200",quantile="0"} 0
+http_server_response_body_size{http_route="/health",http_request_method="GET",http_response_status_code="200",quantile="0.5"} 0
+http_server_response_body_size{http_route="/health",http_request_method="GET",http_response_status_code="200",quantile="0.9"} 0
+http_server_response_body_size{http_route="/health",http_request_method="GET",http_response_status_code="200",quantile="0.95"} 0
+http_server_response_body_size{http_route="/health",http_request_method="GET",http_response_status_code="200",quantile="0.99"} 0
+http_server_response_body_size{http_route="/health",http_request_method="GET",http_response_status_code="200",quantile="0.999"} 0
+http_server_response_body_size{http_route="/health",http_request_method="GET",http_response_status_code="200",quantile="1"} 0
+http_server_response_body_size_sum{http_route="/health",http_request_method="GET",http_response_status_code="200"} 0
+http_server_response_body_size_count{http_route="/health",http_request_method="GET",http_response_status_code="200"} 1
 ```
 
 NOTE: There are 2 important things to note:
@@ -128,7 +149,7 @@ async fn main() -> std::io::Result<()> {
 ## Configurable routes pattern cardinality
 
 Let's say you have on your app a route to fetch posts by language and by slug `GET /posts/{language}/{slug}`.
-By default, actix-web-metrics will provide metrics for the whole route with the label `endpoint` set to the pattern `/posts/{language}/{slug}`.
+By default, actix-web-metrics will provide metrics for the whole route with the label `http.route` set to the pattern `/posts/{language}/{slug}`.
 This is great but you cannot differentiate metrics across languages (as there is only a limited set of them).
 Actix-web-metrics can be configured to allow for more cardinality on some route params.
 
@@ -178,7 +199,7 @@ By default, if a request path is not matched to an Actix Web route, it will be m
 This is useful to avoid producing lots of useless metrics due to bots or malicious actors.
 
 This can be configured in the following ways:
-* `mask_unmatched_patterns()` can be used to change the endpoint label to something other than `UNKNOWN`.
+* `mask_unmatched_patterns()` can be used to change the `http_route` label to something other than `UNKNOWN`.
 * `disable_unmatched_pattern_masking()` can be used to disable this masking functionality.
 
 ```rust,no_run
@@ -193,13 +214,13 @@ ActixWebMetricsBuilder::new()
 The above will convert all `/<nonexistent-path>` into `UNMATCHED`:
 
 ```text
-http_requests_duration_seconds_sum{endpoint="/favicon.ico",method="GET",status="400"} 0.000424898
+http_requests_duration_seconds_sum{http_route="/favicon.ico",http_request_method="GET",http_response_status="400"} 0.000424898
 ```
 
 becomes
 
 ```text
-http_requests_duration_seconds_sum{endpoint="UNMATCHED",method="GET",status="400"} 0.000424898
+http_requests_duration_seconds_sum{http_route="UNMATCHED",http_request_method="GET",http_response_status="400"} 0.000424898
 ```
 
 # Motivations
