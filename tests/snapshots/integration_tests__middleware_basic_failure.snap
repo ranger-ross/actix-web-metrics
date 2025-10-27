@@ -13,20 +13,20 @@ Snapshot(
                     ),
                     labels: [
                         Label(
-                            "endpoint",
+                            "http.route",
                             "/health_checkz",
                         ),
                         Label(
-                            "method",
+                            "http.request.method",
                             "GET",
                         ),
                         Label(
-                            "status",
+                            "http.response.status_code",
                             "404",
                         ),
                     ],
                     hashed: true,
-                    hash: 18418137865889961160,
+                    hash: 8019629060233687579,
                 },
             ),
             Some(
@@ -50,20 +50,20 @@ Snapshot(
                     ),
                     labels: [
                         Label(
-                            "endpoint",
+                            "http.route",
                             "/health_checkz",
                         ),
                         Label(
-                            "method",
+                            "http.request.method",
                             "GET",
                         ),
                         Label(
-                            "status",
+                            "http.response.status_code",
                             "404",
                         ),
                     ],
                     hashed: true,
-                    hash: 3933268083436791729,
+                    hash: 9062626226389442137,
                 },
             ),
             Some(
@@ -87,20 +87,20 @@ Snapshot(
                     ),
                     labels: [
                         Label(
-                            "endpoint",
+                            "http.route",
                             "/health_checkz",
                         ),
                         Label(
-                            "method",
+                            "http.request.method",
                             "GET",
                         ),
                         Label(
-                            "status",
+                            "http.response.status_code",
                             "404",
                         ),
                     ],
                     hashed: true,
-                    hash: 3408848282764709791,
+                    hash: 10013254433011582819,
                 },
             ),
             Some(

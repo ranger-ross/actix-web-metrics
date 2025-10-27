@@ -13,20 +13,20 @@ Snapshot(
                     ),
                     labels: [
                         Label(
-                            "endpoint",
+                            "http.route",
                             "/resource/{id}",
                         ),
                         Label(
-                            "method",
+                            "http.request.method",
                             "GET",
                         ),
                         Label(
-                            "status",
+                            "http.response.status_code",
                             "200",
                         ),
                     ],
                     hashed: true,
-                    hash: 1915246769214470642,
+                    hash: 8387820821025311901,
                 },
             ),
             Some(
@@ -50,20 +50,20 @@ Snapshot(
                     ),
                     labels: [
                         Label(
-                            "endpoint",
+                            "http.route",
                             "/resource/{id}",
                         ),
                         Label(
-                            "method",
+                            "http.request.method",
                             "GET",
                         ),
                         Label(
-                            "status",
+                            "http.response.status_code",
                             "200",
                         ),
                     ],
                     hashed: true,
-                    hash: 13590920184145800938,
+                    hash: 17699972035774939912,
                 },
             ),
             Some(
@@ -87,20 +87,20 @@ Snapshot(
                     ),
                     labels: [
                         Label(
-                            "endpoint",
+                            "http.route",
                             "/resource/{id}",
                         ),
                         Label(
-                            "method",
+                            "http.request.method",
                             "GET",
                         ),
                         Label(
-                            "status",
+                            "http.response.status_code",
                             "200",
                         ),
                     ],
                     hashed: true,
-                    hash: 8665247207622633563,
+                    hash: 5645437327872220050,
                 },
             ),
             Some(

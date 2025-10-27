@@ -13,15 +13,15 @@ Snapshot(
                     ),
                     labels: [
                         Label(
-                            "endpoint",
+                            "http.route",
                             "/health_check",
                         ),
                         Label(
-                            "method",
+                            "http.request.method",
                             "GET",
                         ),
                         Label(
-                            "status",
+                            "http.response.status_code",
                             "200",
                         ),
                         Label(
@@ -34,7 +34,7 @@ Snapshot(
                         ),
                     ],
                     hashed: true,
-                    hash: 8563260538785848257,
+                    hash: 7642191187087606700,
                 },
             ),
             Some(
@@ -58,15 +58,15 @@ Snapshot(
                     ),
                     labels: [
                         Label(
-                            "endpoint",
+                            "http.route",
                             "/health_check",
                         ),
                         Label(
-                            "method",
+                            "http.request.method",
                             "GET",
                         ),
                         Label(
-                            "status",
+                            "http.response.status_code",
                             "200",
                         ),
                         Label(
@@ -79,7 +79,7 @@ Snapshot(
                         ),
                     ],
                     hashed: true,
-                    hash: 13116387298958882600,
+                    hash: 6127352987159278997,
                 },
             ),
             Some(
@@ -103,15 +103,15 @@ Snapshot(
                     ),
                     labels: [
                         Label(
-                            "endpoint",
+                            "http.route",
                             "/health_check",
                         ),
                         Label(
-                            "method",
+                            "http.request.method",
                             "GET",
                         ),
                         Label(
-                            "status",
+                            "http.response.status_code",
                             "200",
                         ),
                         Label(
@@ -124,7 +124,7 @@ Snapshot(
                         ),
                     ],
                     hashed: true,
-                    hash: 4730924353220142260,
+                    hash: 6998760293122313763,
                 },
             ),
             Some(

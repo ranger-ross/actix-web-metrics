@@ -410,7 +410,7 @@ impl ActixWebMetricsBuilder {
                 )),
                 http_request_size_bytes: Box::leak(Box::new(http_server_request_body_size_name)),
                 http_response_size_bytes: Box::leak(Box::new(http_server_response_body_size_name)),
-                endpoint: Box::leak(Box::new(self.metrics_config.labels.endpoint)),
+                endpoint: Box::leak(Box::new(self.metrics_config.labels.route)),
                 method: Box::leak(Box::new(self.metrics_config.labels.method)),
                 status: Box::leak(Box::new(self.metrics_config.labels.status)),
                 version,
@@ -429,7 +429,7 @@ impl Default for ActixWebMetricsBuilder {
 /// Configuration for the labels used in metrics
 #[derive(Debug, Clone)]
 pub struct LabelsConfig {
-    endpoint: String,
+    route: String,
     method: String,
     status: String,
     version: Option<String>,
@@ -438,9 +438,9 @@ pub struct LabelsConfig {
 impl Default for LabelsConfig {
     fn default() -> Self {
         Self {
-            endpoint: String::from("endpoint"),
-            method: String::from("method"),
-            status: String::from("status"),
+            route: String::from("http.route"),
+            method: String::from("http.request.method"),
+            status: String::from("http.response.status_code"),
             version: None,
         }
     }
@@ -453,9 +453,9 @@ impl LabelsConfig {
         self
     }
 
-    /// set http endpoint label
-    pub fn endpoint<T: Into<String>>(mut self, name: T) -> Self {
-        self.endpoint = name.into();
+    /// set http route label
+    pub fn route<T: Into<String>>(mut self, name: T) -> Self {
+        self.route = name.into();
         self
     }
 
