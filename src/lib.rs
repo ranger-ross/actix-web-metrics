@@ -67,41 +67,45 @@ A call to the `localhost:9000/metrics` endpoint will expose your metrics:
 ```shell
 $ curl http://localhost:9000/metrics
 
+# HELP http_server_active_requests Number of active HTTP server requests.
+# TYPE http_server_active_requests gauge
+http_server_active_requests{http_request_method="GET",url_scheme="http"} 1
+
 # HELP http_server_request_duration HTTP request duration in seconds for all requests
 # TYPE http_server_request_duration summary
-http_server_request_duration{http_route="/health",http_request_method="GET",http_response_status_code="200",quantile="0"} 0.000457019
-http_server_request_duration{http_route="/health",http_request_method="GET",http_response_status_code="200",quantile="0.5"} 0.0004570581050440776
-http_server_request_duration{http_route="/health",http_request_method="GET",http_response_status_code="200",quantile="0.9"} 0.0004570581050440776
-http_server_request_duration{http_route="/health",http_request_method="GET",http_response_status_code="200",quantile="0.95"} 0.0004570581050440776
-http_server_request_duration{http_route="/health",http_request_method="GET",http_response_status_code="200",quantile="0.99"} 0.0004570581050440776
-http_server_request_duration{http_route="/health",http_request_method="GET",http_response_status_code="200",quantile="0.999"} 0.0004570581050440776
-http_server_request_duration{http_route="/health",http_request_method="GET",http_response_status_code="200",quantile="1"} 0.000457019
-http_server_request_duration_sum{http_route="/health",http_request_method="GET",http_response_status_code="200"} 0.000457019
-http_server_request_duration_count{http_route="/health",http_request_method="GET",http_response_status_code="200"} 1
-
-# HELP http_server_request_body_size HTTP request size in bytes for all requests
-# TYPE http_server_request_body_size summary
-http_server_request_body_size{http_route="/health",http_request_method="GET",http_response_status_code="200",quantile="0"} 0
-http_server_request_body_size{http_route="/health",http_request_method="GET",http_response_status_code="200",quantile="0.5"} 0
-http_server_request_body_size{http_route="/health",http_request_method="GET",http_response_status_code="200",quantile="0.9"} 0
-http_server_request_body_size{http_route="/health",http_request_method="GET",http_response_status_code="200",quantile="0.95"} 0
-http_server_request_body_size{http_route="/health",http_request_method="GET",http_response_status_code="200",quantile="0.99"} 0
-http_server_request_body_size{http_route="/health",http_request_method="GET",http_response_status_code="200",quantile="0.999"} 0
-http_server_request_body_size{http_route="/health",http_request_method="GET",http_response_status_code="200",quantile="1"} 0
-http_server_request_body_size_sum{http_route="/health",http_request_method="GET",http_response_status_code="200"} 0
-http_server_request_body_size_count{http_route="/health",http_request_method="GET",http_response_status_code="200"} 1
+http_server_request_duration{http_route="/health",http_request_method="GET",http_response_status_code="200",network_protocol_name="http",network_protocol_version="1.1",quantile="0"} 0.000227207
+http_server_request_duration{http_route="/health",http_request_method="GET",http_response_status_code="200",network_protocol_name="http",network_protocol_version="1.1",quantile="0.5"} 0.00022719541927422382
+http_server_request_duration{http_route="/health",http_request_method="GET",http_response_status_code="200",network_protocol_name="http",network_protocol_version="1.1",quantile="0.9"} 0.00022719541927422382
+http_server_request_duration{http_route="/health",http_request_method="GET",http_response_status_code="200",network_protocol_name="http",network_protocol_version="1.1",quantile="0.95"} 0.00022719541927422382
+http_server_request_duration{http_route="/health",http_request_method="GET",http_response_status_code="200",network_protocol_name="http",network_protocol_version="1.1",quantile="0.99"} 0.00022719541927422382
+http_server_request_duration{http_route="/health",http_request_method="GET",http_response_status_code="200",network_protocol_name="http",network_protocol_version="1.1",quantile="0.999"} 0.00022719541927422382
+http_server_request_duration{http_route="/health",http_request_method="GET",http_response_status_code="200",network_protocol_name="http",network_protocol_version="1.1",quantile="1"} 0.000227207
+http_server_request_duration_sum{http_route="/health",http_request_method="GET",http_response_status_code="200",network_protocol_name="http",network_protocol_version="1.1"} 0.000227207
+http_server_request_duration_count{http_route="/health",http_request_method="GET",http_response_status_code="200",network_protocol_name="http",network_protocol_version="1.1"} 1
 
 # HELP http_server_response_body_size HTTP response size in bytes for all requests
 # TYPE http_server_response_body_size summary
-http_server_response_body_size{http_route="/health",http_request_method="GET",http_response_status_code="200",quantile="0"} 0
-http_server_response_body_size{http_route="/health",http_request_method="GET",http_response_status_code="200",quantile="0.5"} 0
-http_server_response_body_size{http_route="/health",http_request_method="GET",http_response_status_code="200",quantile="0.9"} 0
-http_server_response_body_size{http_route="/health",http_request_method="GET",http_response_status_code="200",quantile="0.95"} 0
-http_server_response_body_size{http_route="/health",http_request_method="GET",http_response_status_code="200",quantile="0.99"} 0
-http_server_response_body_size{http_route="/health",http_request_method="GET",http_response_status_code="200",quantile="0.999"} 0
-http_server_response_body_size{http_route="/health",http_request_method="GET",http_response_status_code="200",quantile="1"} 0
-http_server_response_body_size_sum{http_route="/health",http_request_method="GET",http_response_status_code="200"} 0
-http_server_response_body_size_count{http_route="/health",http_request_method="GET",http_response_status_code="200"} 1
+http_server_response_body_size{http_route="/health",http_request_method="GET",http_response_status_code="200",network_protocol_name="http",network_protocol_version="1.1",quantile="0"} 0
+http_server_response_body_size{http_route="/health",http_request_method="GET",http_response_status_code="200",network_protocol_name="http",network_protocol_version="1.1",quantile="0.5"} 0
+http_server_response_body_size{http_route="/health",http_request_method="GET",http_response_status_code="200",network_protocol_name="http",network_protocol_version="1.1",quantile="0.9"} 0
+http_server_response_body_size{http_route="/health",http_request_method="GET",http_response_status_code="200",network_protocol_name="http",network_protocol_version="1.1",quantile="0.95"} 0
+http_server_response_body_size{http_route="/health",http_request_method="GET",http_response_status_code="200",network_protocol_name="http",network_protocol_version="1.1",quantile="0.99"} 0
+http_server_response_body_size{http_route="/health",http_request_method="GET",http_response_status_code="200",network_protocol_name="http",network_protocol_version="1.1",quantile="0.999"} 0
+http_server_response_body_size{http_route="/health",http_request_method="GET",http_response_status_code="200",network_protocol_name="http",network_protocol_version="1.1",quantile="1"} 0
+http_server_response_body_size_sum{http_route="/health",http_request_method="GET",http_response_status_code="200",network_protocol_name="http",network_protocol_version="1.1"} 0
+http_server_response_body_size_count{http_route="/health",http_request_method="GET",http_response_status_code="200",network_protocol_name="http",network_protocol_version="1.1"} 1
+
+# HELP http_server_request_body_size HTTP request size in bytes for all requests
+# TYPE http_server_request_body_size summary
+http_server_request_body_size{http_route="/health",http_request_method="GET",http_response_status_code="200",network_protocol_name="http",network_protocol_version="1.1",quantile="0"} 0
+http_server_request_body_size{http_route="/health",http_request_method="GET",http_response_status_code="200",network_protocol_name="http",network_protocol_version="1.1",quantile="0.5"} 0
+http_server_request_body_size{http_route="/health",http_request_method="GET",http_response_status_code="200",network_protocol_name="http",network_protocol_version="1.1",quantile="0.9"} 0
+http_server_request_body_size{http_route="/health",http_request_method="GET",http_response_status_code="200",network_protocol_name="http",network_protocol_version="1.1",quantile="0.95"} 0
+http_server_request_body_size{http_route="/health",http_request_method="GET",http_response_status_code="200",network_protocol_name="http",network_protocol_version="1.1",quantile="0.99"} 0
+http_server_request_body_size{http_route="/health",http_request_method="GET",http_response_status_code="200",network_protocol_name="http",network_protocol_version="1.1",quantile="0.999"} 0
+http_server_request_body_size{http_route="/health",http_request_method="GET",http_response_status_code="200",network_protocol_name="http",network_protocol_version="1.1",quantile="1"} 0
+http_server_request_body_size_sum{http_route="/health",http_request_method="GET",http_response_status_code="200",network_protocol_name="http",network_protocol_version="1.1"} 0
+http_server_request_body_size_count{http_route="/health",http_request_method="GET",http_response_status_code="200",network_protocol_name="http",network_protocol_version="1.1"} 1
 ```
 
 NOTE: There are 2 important things to note:
@@ -187,7 +191,8 @@ ActixWebMetricsBuilder::new()
         ActixWebMetricsConfig::default()
            .http_server_request_duration_name("my_http_request_duration")
            .http_server_request_body_size_name("my_http_server_request_body_size_name")
-           .http_server_response_body_size_name("my_http_server_response_body_size_name"),
+           .http_server_response_body_size_name("my_http_server_response_body_size_name")
+           .http_server_active_requests_name("my_http_server_active_requests_name"),
     )
     .build();
 ```
