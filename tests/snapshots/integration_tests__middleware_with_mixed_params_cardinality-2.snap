@@ -9,7 +9,7 @@ Snapshot(
                 Histogram,
                 Key {
                     name: KeyName(
-                        "http_requests_duration_seconds",
+                        "http_requests_duration",
                     ),
                     labels: [
                         Label(
@@ -26,10 +26,12 @@ Snapshot(
                         ),
                     ],
                     hashed: true,
-                    hash: 16677604285899448330,
+                    hash: 7758050952531798982,
                 },
             ),
-            None,
+            Some(
+                Seconds,
+            ),
             Some(
                 "HTTP request duration in seconds for all requests",
             ),
@@ -75,7 +77,77 @@ Snapshot(
                 Histogram,
                 Key {
                     name: KeyName(
-                        "http_requests_duration_seconds",
+                        "http_request_size",
+                    ),
+                    labels: [
+                        Label(
+                            "endpoint",
+                            "/resource/foo/{expensive}",
+                        ),
+                        Label(
+                            "method",
+                            "GET",
+                        ),
+                        Label(
+                            "status",
+                            "200",
+                        ),
+                    ],
+                    hashed: true,
+                    hash: 5190513470604352987,
+                },
+            ),
+            Some(
+                Bytes,
+            ),
+            Some(
+                "HTTP request size in bytes for all requests",
+            ),
+            Histogram(
+                [],
+            ),
+        ),
+        (
+            CompositeKey(
+                Histogram,
+                Key {
+                    name: KeyName(
+                        "http_response_size",
+                    ),
+                    labels: [
+                        Label(
+                            "endpoint",
+                            "/resource/foo/{expensive}",
+                        ),
+                        Label(
+                            "method",
+                            "GET",
+                        ),
+                        Label(
+                            "status",
+                            "200",
+                        ),
+                    ],
+                    hashed: true,
+                    hash: 2898999344348525000,
+                },
+            ),
+            Some(
+                Bytes,
+            ),
+            Some(
+                "HTTP response size in bytes for all requests",
+            ),
+            Histogram(
+                [],
+            ),
+        ),
+        (
+            CompositeKey(
+                Histogram,
+                Key {
+                    name: KeyName(
+                        "http_requests_duration",
                     ),
                     labels: [
                         Label(
@@ -92,10 +164,12 @@ Snapshot(
                         ),
                     ],
                     hashed: true,
-                    hash: 1935409250685086246,
+                    hash: 15520986072832415798,
                 },
             ),
-            None,
+            Some(
+                Seconds,
+            ),
             Some(
                 "HTTP request duration in seconds for all requests",
             ),
@@ -136,6 +210,80 @@ Snapshot(
             ),
             Counter(
                 1,
+            ),
+        ),
+        (
+            CompositeKey(
+                Histogram,
+                Key {
+                    name: KeyName(
+                        "http_request_size",
+                    ),
+                    labels: [
+                        Label(
+                            "endpoint",
+                            "/resource/{cheap}/{expensive}",
+                        ),
+                        Label(
+                            "method",
+                            "GET",
+                        ),
+                        Label(
+                            "status",
+                            "404",
+                        ),
+                    ],
+                    hashed: true,
+                    hash: 15565560109234745214,
+                },
+            ),
+            Some(
+                Bytes,
+            ),
+            Some(
+                "HTTP request size in bytes for all requests",
+            ),
+            Histogram(
+                [
+                    0.0,
+                ],
+            ),
+        ),
+        (
+            CompositeKey(
+                Histogram,
+                Key {
+                    name: KeyName(
+                        "http_response_size",
+                    ),
+                    labels: [
+                        Label(
+                            "endpoint",
+                            "/resource/{cheap}/{expensive}",
+                        ),
+                        Label(
+                            "method",
+                            "GET",
+                        ),
+                        Label(
+                            "status",
+                            "404",
+                        ),
+                    ],
+                    hashed: true,
+                    hash: 3589593448634838773,
+                },
+            ),
+            Some(
+                Bytes,
+            ),
+            Some(
+                "HTTP response size in bytes for all requests",
+            ),
+            Histogram(
+                [
+                    0.0,
+                ],
             ),
         ),
     ],
