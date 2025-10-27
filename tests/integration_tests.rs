@@ -7,9 +7,9 @@ use actix_web::{web, App, HttpMessage, HttpResponse, Resource, Scope};
 use actix_web_metrics::{
     ActixWebMetricsBuilder, ActixWebMetricsConfig, ActixWebMetricsExtension, LabelsConfig,
 };
-use metrics::{counter, set_default_local_recorder, Key, Label};
-use metrics_util::debugging::{DebugValue, DebuggingRecorder};
-use metrics_util::{CompositeKey, MetricKind};
+use metrics::{counter, set_default_local_recorder};
+use metrics_exporter_prometheus::PrometheusBuilder;
+use metrics_util::debugging::DebuggingRecorder;
 
 const SNAPSHOT_FILTERS: [(&str, &str); 2] =
     [(r"\d\.\d+e-\d+", "[VALUE]"), (r"\d\.\d{5, 20}", "[VALUE]")];
@@ -40,11 +40,9 @@ async fn middleware_basic() {
 
 #[actix_web::test]
 async fn middleware_http_version() {
-    let recorder = DebuggingRecorder::new();
-    let snapshotter = recorder.snapshotter();
-    let _guard = set_default_local_recorder(&recorder);
+    let prometheus = PrometheusBuilder::new().install_recorder().unwrap();
 
-    let prometheus = ActixWebMetricsBuilder::new()
+    let metrics = ActixWebMetricsBuilder::new()
         .metrics_config(
             ActixWebMetricsConfig::default().labels(LabelsConfig::default().version("version")),
         )
@@ -52,7 +50,7 @@ async fn middleware_http_version() {
 
     let app = init_service(
         App::new()
-            .wrap(prometheus)
+            .wrap(metrics)
             .service(web::resource("/health_check").to(HttpResponse::Ok)),
     )
     .await;
@@ -79,23 +77,30 @@ async fn middleware_http_version() {
         }
     }
 
-    #[allow(clippy::mutable_key_type)]
-    let snap = snapshotter.snapshot().into_hashmap();
+    let prom_metrics = prometheus.render();
 
     for (http_version, repeats) in test_cases {
-        let Some((_, _, DebugValue::Counter(value))) = snap.get(&CompositeKey::new(
-            MetricKind::Counter,
-            Key::from_name("http_requests_total").with_extra_labels(vec![
-                Label::new("endpoint", "/health_check"),
-                Label::new("method", "GET"),
-                Label::new("status", "200"),
-                Label::new("version", format!("{http_version:?}")),
-            ]),
-        )) else {
+        let mut actual_value: Option<u32> = None;
+        for line in prom_metrics.lines() {
+            if !line.starts_with("http_server_request_duration_count") {
+                continue;
+            }
+            if !line.contains(&format!("version=\"{http_version:?}\"")) {
+                continue;
+            }
+
+            let Some((_, value)) = line.split_once("} ") else {
+                continue;
+            };
+
+            actual_value = value.parse().ok();
+            break;
+        }
+
+        let Some(actual_value) = actual_value else {
             panic!("Missing metric for {http_version:?}");
         };
-
-        assert_eq!(value, &repeats);
+        assert_eq!(actual_value, repeats);
     }
 }
 
