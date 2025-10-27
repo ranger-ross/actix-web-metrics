@@ -51,47 +51,6 @@ Snapshot(
         ),
         (
             CompositeKey(
-                Counter,
-                Key {
-                    name: KeyName(
-                        "http.requests.total",
-                    ),
-                    labels: [
-                        Label(
-                            "endpoint",
-                            "/health_check",
-                        ),
-                        Label(
-                            "method",
-                            "GET",
-                        ),
-                        Label(
-                            "status",
-                            "200",
-                        ),
-                        Label(
-                            "label1",
-                            "value1",
-                        ),
-                        Label(
-                            "label2",
-                            "value2",
-                        ),
-                    ],
-                    hashed: true,
-                    hash: 9139398906773128414,
-                },
-            ),
-            None,
-            Some(
-                "Total number of HTTP requests",
-            ),
-            Counter(
-                1,
-            ),
-        ),
-        (
-            CompositeKey(
                 Histogram,
                 Key {
                     name: KeyName(
