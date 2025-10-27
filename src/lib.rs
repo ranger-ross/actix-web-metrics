@@ -566,10 +566,12 @@ impl ActixWebMetricsConfig {
 /// This config primarily exists to avoid allocations during execution.
 #[derive(Debug, Clone)]
 struct MetricsMetadata {
+    // metric names
     http_requests_duration_seconds: &'static str,
     http_request_size_bytes: &'static str,
     http_response_size_bytes: &'static str,
     http_server_active_requests: &'static str,
+    // label names
     http_route: &'static str,
     http_request_method: &'static str,
     http_response_status_code: &'static str,
