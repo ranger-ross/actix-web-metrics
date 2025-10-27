@@ -9,7 +9,7 @@ Snapshot(
                 Histogram,
                 Key {
                     name: KeyName(
-                        "http_requests_duration_seconds",
+                        "http_requests_duration",
                     ),
                     labels: [
                         Label(
@@ -34,10 +34,12 @@ Snapshot(
                         ),
                     ],
                     hashed: true,
-                    hash: 12538042168141437319,
+                    hash: 17709408314914359361,
                 },
             ),
-            None,
+            Some(
+                Seconds,
+            ),
             Some(
                 "HTTP request duration in seconds for all requests",
             ),

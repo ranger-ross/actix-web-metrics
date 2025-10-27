@@ -338,6 +338,7 @@ impl ActixWebMetricsBuilder {
         );
         describe_histogram!(
             http_requests_duration_seconds_name.clone(),
+            Unit::Seconds,
             "HTTP request duration in seconds for all requests"
         );
         let http_requests_total_name = format!(
@@ -477,7 +478,7 @@ impl Default for ActixWebMetricsConfig {
     fn default() -> Self {
         Self {
             http_requests_total_name: String::from("http_requests_total"),
-            http_requests_duration_seconds_name: String::from("http_requests_duration_seconds"),
+            http_requests_duration_seconds_name: String::from("http_requests_duration"),
             http_request_size_bytes_name: String::from("http_request_size"),
             http_response_size_bytes_name: String::from("http_response_size"),
             labels: LabelsConfig::default(),

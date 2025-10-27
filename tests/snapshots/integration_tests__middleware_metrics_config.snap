@@ -29,7 +29,9 @@ Snapshot(
                     hash: 2786190870894472163,
                 },
             ),
-            None,
+            Some(
+                Seconds,
+            ),
             Some(
                 "HTTP request duration in seconds for all requests",
             ),
