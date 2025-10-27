@@ -302,7 +302,7 @@ async fn middleware_metrics_config() {
     let _guard = set_default_local_recorder(&recorder);
 
     let metrics_config = ActixWebMetricsConfig::default()
-        .http_requests_duration_seconds_name("my_http_request_duration")
+        .http_server_request_duration_name("my_http_request_duration")
         .http_requests_total_name("my_http_requests_total");
 
     let prometheus = ActixWebMetricsBuilder::new()

@@ -9,7 +9,7 @@ Snapshot(
                 Histogram,
                 Key {
                     name: KeyName(
-                        "http_requests_duration",
+                        "http.server.request.duration",
                     ),
                     labels: [
                         Label(
@@ -26,7 +26,7 @@ Snapshot(
                         ),
                     ],
                     hashed: true,
-                    hash: 12997487426083568230,
+                    hash: 18418137865889961160,
                 },
             ),
             Some(
@@ -46,7 +46,7 @@ Snapshot(
                 Counter,
                 Key {
                     name: KeyName(
-                        "http_requests_total",
+                        "http.requests.total",
                     ),
                     labels: [
                         Label(
@@ -63,7 +63,7 @@ Snapshot(
                         ),
                     ],
                     hashed: true,
-                    hash: 12558757896284170861,
+                    hash: 10808872170974590317,
                 },
             ),
             None,
@@ -79,7 +79,7 @@ Snapshot(
                 Histogram,
                 Key {
                     name: KeyName(
-                        "http_request_size",
+                        "http.server.request.body.size",
                     ),
                     labels: [
                         Label(
@@ -96,7 +96,7 @@ Snapshot(
                         ),
                     ],
                     hashed: true,
-                    hash: 11905865990427007573,
+                    hash: 3933268083436791729,
                 },
             ),
             Some(
@@ -116,7 +116,7 @@ Snapshot(
                 Histogram,
                 Key {
                     name: KeyName(
-                        "http_response_size",
+                        "http.server.response.body.size",
                     ),
                     labels: [
                         Label(
@@ -133,7 +133,7 @@ Snapshot(
                         ),
                     ],
                     hashed: true,
-                    hash: 14693485711194098351,
+                    hash: 3408848282764709791,
                 },
             ),
             Some(
