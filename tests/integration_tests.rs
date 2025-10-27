@@ -396,10 +396,7 @@ async fn middleware_with_size_metrics() {
     let snapshotter = recorder.snapshotter();
     let _guard = set_default_local_recorder(&recorder);
 
-    let prometheus = ActixWebMetricsBuilder::new()
-        .enable_request_size_metrics()
-        .enable_response_size_metrics()
-        .build();
+    let prometheus = ActixWebMetricsBuilder::new().build();
 
     let app = init_service(App::new().wrap(prometheus).service(
         web::resource("/health_check").to(|| async { HttpResponse::Ok().body("test response") }),
