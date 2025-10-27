@@ -9,7 +9,7 @@ Snapshot(
                 Histogram,
                 Key {
                     name: KeyName(
-                        "http_requests_duration",
+                        "http.server.request.duration",
                     ),
                     labels: [
                         Label(
@@ -26,7 +26,7 @@ Snapshot(
                         ),
                     ],
                     hashed: true,
-                    hash: 7758050952531798982,
+                    hash: 5757663965530158153,
                 },
             ),
             Some(
@@ -41,43 +41,10 @@ Snapshot(
         ),
         (
             CompositeKey(
-                Counter,
-                Key {
-                    name: KeyName(
-                        "http_requests_total",
-                    ),
-                    labels: [
-                        Label(
-                            "endpoint",
-                            "/resource/foo/{expensive}",
-                        ),
-                        Label(
-                            "method",
-                            "GET",
-                        ),
-                        Label(
-                            "status",
-                            "200",
-                        ),
-                    ],
-                    hashed: true,
-                    hash: 1110937024453075126,
-                },
-            ),
-            None,
-            Some(
-                "Total number of HTTP requests",
-            ),
-            Counter(
-                1,
-            ),
-        ),
-        (
-            CompositeKey(
                 Histogram,
                 Key {
                     name: KeyName(
-                        "http_request_size",
+                        "http.server.request.body.size",
                     ),
                     labels: [
                         Label(
@@ -94,7 +61,7 @@ Snapshot(
                         ),
                     ],
                     hashed: true,
-                    hash: 5190513470604352987,
+                    hash: 5128707337760329201,
                 },
             ),
             Some(
@@ -112,7 +79,7 @@ Snapshot(
                 Histogram,
                 Key {
                     name: KeyName(
-                        "http_response_size",
+                        "http.server.response.body.size",
                     ),
                     labels: [
                         Label(
@@ -129,7 +96,7 @@ Snapshot(
                         ),
                     ],
                     hashed: true,
-                    hash: 2898999344348525000,
+                    hash: 453729312874843834,
                 },
             ),
             Some(
@@ -147,7 +114,7 @@ Snapshot(
                 Histogram,
                 Key {
                     name: KeyName(
-                        "http_requests_duration",
+                        "http.server.request.duration",
                     ),
                     labels: [
                         Label(
@@ -164,7 +131,7 @@ Snapshot(
                         ),
                     ],
                     hashed: true,
-                    hash: 15520986072832415798,
+                    hash: 2214394467041490922,
                 },
             ),
             Some(
@@ -181,43 +148,10 @@ Snapshot(
         ),
         (
             CompositeKey(
-                Counter,
-                Key {
-                    name: KeyName(
-                        "http_requests_total",
-                    ),
-                    labels: [
-                        Label(
-                            "endpoint",
-                            "/resource/{cheap}/{expensive}",
-                        ),
-                        Label(
-                            "method",
-                            "GET",
-                        ),
-                        Label(
-                            "status",
-                            "404",
-                        ),
-                    ],
-                    hashed: true,
-                    hash: 1479735831029129173,
-                },
-            ),
-            None,
-            Some(
-                "Total number of HTTP requests",
-            ),
-            Counter(
-                1,
-            ),
-        ),
-        (
-            CompositeKey(
                 Histogram,
                 Key {
                     name: KeyName(
-                        "http_request_size",
+                        "http.server.request.body.size",
                     ),
                     labels: [
                         Label(
@@ -234,7 +168,7 @@ Snapshot(
                         ),
                     ],
                     hashed: true,
-                    hash: 15565560109234745214,
+                    hash: 8070409521453642742,
                 },
             ),
             Some(
@@ -254,7 +188,7 @@ Snapshot(
                 Histogram,
                 Key {
                     name: KeyName(
-                        "http_response_size",
+                        "http.server.response.body.size",
                     ),
                     labels: [
                         Label(
@@ -271,7 +205,7 @@ Snapshot(
                         ),
                     ],
                     hashed: true,
-                    hash: 3589593448634838773,
+                    hash: 5405586762145279153,
                 },
             ),
             Some(
