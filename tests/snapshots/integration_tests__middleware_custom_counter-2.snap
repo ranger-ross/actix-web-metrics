@@ -2,183 +2,141 @@
 source: tests/integration_tests.rs
 expression: snapshot
 ---
-Snapshot(
-    [
-        (
-            CompositeKey(
-                Gauge,
-                Key {
-                    name: KeyName(
-                        "http.server.active_requests",
-                    ),
-                    labels: [
-                        Label(
-                            "http.request.method",
-                            "GET",
-                        ),
-                        Label(
-                            "url.scheme",
-                            "http",
-                        ),
-                    ],
-                    hashed: true,
-                    hash: 1764143306982493858,
-                },
+[
+    (
+        Gauge,
+        "http.server.active_requests",
+        [
+            (
+                "http.request.method",
+                "GET",
             ),
-            None,
-            Some(
-                "Number of active HTTP server requests.",
+            (
+                "url.scheme",
+                "http",
             ),
-            Gauge(
-                0.0,
-            ),
+        ],
+        None,
+        Some(
+            "Number of active HTTP server requests.",
         ),
-        (
-            CompositeKey(
-                Histogram,
-                Key {
-                    name: KeyName(
-                        "http.server.request.duration",
-                    ),
-                    labels: [
-                        Label(
-                            "http.route",
-                            "/health_check",
-                        ),
-                        Label(
-                            "http.request.method",
-                            "GET",
-                        ),
-                        Label(
-                            "http.response.status_code",
-                            "200",
-                        ),
-                        Label(
-                            "network.protocol.name",
-                            "http",
-                        ),
-                        Label(
-                            "network.protocol.version",
-                            "1.1",
-                        ),
-                    ],
-                    hashed: true,
-                    hash: 17469207916331858813,
-                },
-            ),
-            Some(
-                Seconds,
-            ),
-            Some(
-                "HTTP request duration in seconds for all requests",
-            ),
-            Histogram(
-                [],
-            ),
+        Gauge(
+            0.0,
         ),
-        (
-            CompositeKey(
-                Histogram,
-                Key {
-                    name: KeyName(
-                        "http.server.request.body.size",
-                    ),
-                    labels: [
-                        Label(
-                            "http.route",
-                            "/health_check",
-                        ),
-                        Label(
-                            "http.request.method",
-                            "GET",
-                        ),
-                        Label(
-                            "http.response.status_code",
-                            "200",
-                        ),
-                        Label(
-                            "network.protocol.name",
-                            "http",
-                        ),
-                        Label(
-                            "network.protocol.version",
-                            "1.1",
-                        ),
-                    ],
-                    hashed: true,
-                    hash: 2326891984904186742,
-                },
+    ),
+    (
+        Histogram,
+        "http.server.request.duration",
+        [
+            (
+                "http.route",
+                "/health_check",
             ),
-            Some(
-                Bytes,
+            (
+                "http.request.method",
+                "GET",
             ),
-            Some(
-                "HTTP request size in bytes for all requests",
+            (
+                "http.response.status_code",
+                "200",
             ),
-            Histogram(
-                [],
+            (
+                "network.protocol.name",
+                "http",
             ),
+            (
+                "network.protocol.version",
+                "1.1",
+            ),
+        ],
+        Some(
+            Seconds,
         ),
-        (
-            CompositeKey(
-                Histogram,
-                Key {
-                    name: KeyName(
-                        "http.server.response.body.size",
-                    ),
-                    labels: [
-                        Label(
-                            "http.route",
-                            "/health_check",
-                        ),
-                        Label(
-                            "http.request.method",
-                            "GET",
-                        ),
-                        Label(
-                            "http.response.status_code",
-                            "200",
-                        ),
-                        Label(
-                            "network.protocol.name",
-                            "http",
-                        ),
-                        Label(
-                            "network.protocol.version",
-                            "1.1",
-                        ),
-                    ],
-                    hashed: true,
-                    hash: 7093323485614915928,
-                },
-            ),
-            Some(
-                Bytes,
-            ),
-            Some(
-                "HTTP response size in bytes for all requests",
-            ),
-            Histogram(
-                [],
-            ),
+        Some(
+            "HTTP request duration in seconds for all requests",
         ),
-        (
-            CompositeKey(
-                Counter,
-                Key {
-                    name: KeyName(
-                        "counter",
-                    ),
-                    labels: [],
-                    hashed: false,
-                    hash: 0,
-                },
-            ),
-            None,
-            None,
-            Counter(
-                1,
-            ),
+        Histogram(
+            [],
         ),
-    ],
-)
+    ),
+    (
+        Histogram,
+        "http.server.request.body.size",
+        [
+            (
+                "http.route",
+                "/health_check",
+            ),
+            (
+                "http.request.method",
+                "GET",
+            ),
+            (
+                "http.response.status_code",
+                "200",
+            ),
+            (
+                "network.protocol.name",
+                "http",
+            ),
+            (
+                "network.protocol.version",
+                "1.1",
+            ),
+        ],
+        Some(
+            Bytes,
+        ),
+        Some(
+            "HTTP request size in bytes for all requests",
+        ),
+        Histogram(
+            [],
+        ),
+    ),
+    (
+        Histogram,
+        "http.server.response.body.size",
+        [
+            (
+                "http.route",
+                "/health_check",
+            ),
+            (
+                "http.request.method",
+                "GET",
+            ),
+            (
+                "http.response.status_code",
+                "200",
+            ),
+            (
+                "network.protocol.name",
+                "http",
+            ),
+            (
+                "network.protocol.version",
+                "1.1",
+            ),
+        ],
+        Some(
+            Bytes,
+        ),
+        Some(
+            "HTTP response size in bytes for all requests",
+        ),
+        Histogram(
+            [],
+        ),
+    ),
+    (
+        Counter,
+        "counter",
+        [],
+        None,
+        None,
+        Counter(
+            1,
+        ),
+    ),
+]
