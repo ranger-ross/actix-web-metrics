@@ -13,7 +13,7 @@ jobs:
   typos:
     runs-on: ubuntu-latest
     steps:
-    - uses: actions/checkout@v4
+    - uses: actions/checkout@v7
     - uses: crate-ci/typos@v1.31.1
 
   build:
@@ -30,7 +30,7 @@ jobs:
             nightly: true
 
     steps:
-    - uses: actions/checkout@v4
+    - uses: actions/checkout@v7
 
     - name: Install ${{ matrix.toolchain }} toolchain
       uses: dtolnay/rust-toolchain@master
