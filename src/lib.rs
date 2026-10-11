@@ -614,7 +614,7 @@ impl ActixWebMetrics {
             this.names.http_request_method,
             req.method().as_str().to_string(),
         ));
-        labels.push((this.names.url_scheme, url_scheme(&req.uri()).to_string()));
+        labels.push((this.names.url_scheme, url_scheme(req.uri()).to_string()));
         for (k, v) in &this.names.const_labels {
             labels.push((k, v.clone()));
         }
@@ -815,7 +815,7 @@ where
             .and_then(|v| v.parse::<usize>().ok())
             .unwrap_or(0);
 
-        let scheme = url_scheme(&req.uri()).to_string();
+        let scheme = url_scheme(req.uri()).to_string();
         let inner = this.inner.clone();
         Poll::Ready(Ok(res.map_body(move |head, body| StreamLog {
             body,
