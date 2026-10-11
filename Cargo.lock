@@ -1834,9 +1834,9 @@ checksum = "a8f112729512f8e442d81f95a8a7ddf2b7c6b8a1a6f509a95864142b30cab2d3"
 
 [[package]]
 name = "strfmt"
-version = "0.2.5"
+version = "0.2.6"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "29fdc163db75f7b5ffa3daf0c5a7136fb0d4b2f35523cd1769da05e034159feb"
+checksum = "046d549b88a663d317cd04d39696fca5f77db4db44e1db65bfb9dee7f9e680bd"
 
 [[package]]
 name = "strip-ansi-escapes"
