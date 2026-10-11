@@ -9,10 +9,32 @@ use actix_web_metrics::{
 };
 use metrics::{counter, set_default_local_recorder};
 use metrics_exporter_prometheus::PrometheusBuilder;
-use metrics_util::debugging::DebuggingRecorder;
+use metrics_util::debugging::{DebuggingRecorder, Snapshot};
 
 const SNAPSHOT_FILTERS: [(&str, &str); 2] =
     [(r"\d\.\d+e-\d+", "[VALUE]"), (r"\d\.\d{5, 20}", "[VALUE]")];
+
+fn metric_snapshot(snapshot: Snapshot) -> impl std::fmt::Debug {
+    snapshot
+        .into_vec()
+        .into_iter()
+        .map(|(key, unit, description, value)| {
+            let labels = key
+                .key()
+                .labels()
+                .map(|label| (label.key().to_owned(), label.value().to_owned()))
+                .collect::<Vec<_>>();
+            (
+                key.kind(),
+                key.key().name().to_owned(),
+                labels,
+                unit,
+                description,
+                value,
+            )
+        })
+        .collect::<Vec<_>>()
+}
 
 #[actix_web::test]
 async fn middleware_basic() {
@@ -32,7 +54,7 @@ async fn middleware_basic() {
     let res = call_service(&app, TestRequest::with_uri("/health_check").to_request()).await;
     assert!(res.status().is_success());
     assert_eq!(read_body(res).await, "");
-    let snapshot = snapshotter.snapshot();
+    let snapshot = metric_snapshot(snapshotter.snapshot());
     insta::with_settings!({filters => SNAPSHOT_FILTERS}, {
         insta::assert_debug_snapshot!(snapshot);
     });
@@ -133,7 +155,7 @@ async fn middleware_match_pattern() {
     assert!(res.status().is_success());
     assert_eq!(read_body(res).await, "");
 
-    let snapshot = snapshotter.snapshot();
+    let snapshot = metric_snapshot(snapshotter.snapshot());
     insta::with_settings!({filters => SNAPSHOT_FILTERS}, {
         insta::assert_debug_snapshot!(snapshot);
     });
@@ -160,7 +182,7 @@ async fn middleware_with_mask_unmatched_pattern() {
     assert!(res.status().is_client_error());
     assert_eq!(read_body(res).await, "");
 
-    let snapshot = snapshotter.snapshot();
+    let snapshot = metric_snapshot(snapshotter.snapshot());
     insta::with_settings!({filters => SNAPSHOT_FILTERS}, {
         insta::assert_debug_snapshot!(snapshot);
     });
@@ -206,7 +228,7 @@ async fn middleware_with_mixed_params_cardinality() {
     assert!(res.status().is_success());
     assert_eq!(read_body(res).await, "");
 
-    let snapshot = snapshotter.snapshot();
+    let snapshot = metric_snapshot(snapshotter.snapshot());
     insta::with_settings!({filters => SNAPSHOT_FILTERS}, {
         insta::assert_debug_snapshot!(snapshot);
     });
@@ -220,7 +242,7 @@ async fn middleware_with_mixed_params_cardinality() {
     assert!(res.status() == 404);
     assert_eq!(read_body(res).await, "");
 
-    let snapshot = snapshotter.snapshot();
+    let snapshot = metric_snapshot(snapshotter.snapshot());
     insta::with_settings!({filters => SNAPSHOT_FILTERS}, {
         insta::assert_debug_snapshot!(snapshot);
     });
@@ -245,7 +267,7 @@ async fn middleware_basic_failure() {
 
     call_service(&app, TestRequest::with_uri("/health_checkz").to_request()).await;
 
-    let snapshot = snapshotter.snapshot();
+    let snapshot = metric_snapshot(snapshotter.snapshot());
     insta::with_settings!({filters => SNAPSHOT_FILTERS}, {
         insta::assert_debug_snapshot!(snapshot);
     });
@@ -269,14 +291,14 @@ async fn middleware_custom_counter() {
     // Verify that 'counter' does not appear in the output before we use it
     call_service(&app, TestRequest::with_uri("/health_check").to_request()).await;
 
-    let snapshot = snapshotter.snapshot();
+    let snapshot = metric_snapshot(snapshotter.snapshot());
     insta::with_settings!({filters => SNAPSHOT_FILTERS}, {
         insta::assert_debug_snapshot!(snapshot);
     });
 
     counter!("counter").increment(1);
 
-    let snapshot = snapshotter.snapshot();
+    let snapshot = metric_snapshot(snapshotter.snapshot());
     insta::with_settings!({filters => SNAPSHOT_FILTERS}, {
         insta::assert_debug_snapshot!(snapshot);
     });
@@ -304,7 +326,7 @@ async fn middleware_const_labels() {
     assert!(res.status().is_success());
     assert_eq!(read_body(res).await, "");
 
-    let snapshot = snapshotter.snapshot();
+    let snapshot = metric_snapshot(snapshotter.snapshot());
     insta::with_settings!({filters => SNAPSHOT_FILTERS}, {
         insta::assert_debug_snapshot!(snapshot);
     });
@@ -334,7 +356,7 @@ async fn middleware_metrics_config() {
     assert!(res.status().is_success());
     assert_eq!(read_body(res).await, "");
 
-    let snapshot = snapshotter.snapshot();
+    let snapshot = metric_snapshot(snapshotter.snapshot());
     insta::with_settings!({filters => SNAPSHOT_FILTERS}, {
         insta::assert_debug_snapshot!(snapshot);
     });
@@ -398,7 +420,7 @@ async fn middleware_excludes() {
     assert!(res.status().is_client_error());
     assert_eq!(read_body(res).await, "");
 
-    let snapshot = snapshotter.snapshot();
+    let snapshot = metric_snapshot(snapshotter.snapshot());
     insta::with_settings!({filters => SNAPSHOT_FILTERS}, {
         insta::assert_debug_snapshot!(snapshot);
     });
@@ -421,7 +443,7 @@ async fn middleware_with_size_metrics() {
     assert!(res.status().is_success());
     assert_eq!(read_body(res).await, "test response");
 
-    let snapshot = snapshotter.snapshot();
+    let snapshot = metric_snapshot(snapshotter.snapshot());
     insta::with_settings!({filters => SNAPSHOT_FILTERS}, {
         insta::assert_debug_snapshot!(snapshot);
     });
